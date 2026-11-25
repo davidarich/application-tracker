@@ -1,0 +1,90 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}Review your resume · Job Tracker{% endblock %}
+{% block breadcrumb %}<a href="{% url 'tracker:resume' %}" class="text-ink-muted transition hover:text-ink">Resume</a><span class="mx-2 text-ink-faint" aria-hidden="true">›</span>Review{% endblock %}
+
+{% block content %}
+{% comment %}
+  Review what was found in an uploaded resume and choose what to add
+  (tracker.resume_import_views.resume_import_review).
+{% endcomment %}
+<div class="max-w-4xl">
+  <h1 class="text-2xl font-semibold tracking-tight">Review your resume</h1>
+  <p class="mt-1 text-sm text-ink-muted">Here's what we found. Fix anything that's wrong, untick what you don't want, then add it to your resume.</p>
+
+  {% if warnings %}
+    <div class="mt-5 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100" role="status">
+      <ul class="list-disc space-y-1 pl-5">
+        {% for warning in warnings %}<li>{{ warning }}</li>{% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <form method="post" action="{% url 'tracker:resume_import_review' %}" novalidate>
+    {% csrf_token %}
+
+    <section class="mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" aria-labelledby="import-summary-title">
+      <h2 id="import-summary-title" class="text-base font-semibold text-ink">Summary</h2>
+      {% if summary %}
+        <div class="form-field mt-4">
+          <label for="import-summary" class="sr-only">Summary</label>
+          <textarea id="import-summary" name="summary" rows="5" class="resize-y">{{ summary }}</textarea>
+        </div>
+        <label class="mt-3 inline-flex cursor-pointer items-center gap-2 text-sm text-ink">
+          <input type="checkbox" name="replace_summary" {% if replace_summary %}checked{% endif %} class="size-4 cursor-pointer rounded accent-accent">
+          {% if has_summary %}Replace my current summary with this{% else %}Use this as my summary{% endif %}
+        </label>
+      {% else %}
+        <p class="mt-4 rounded-xl border border-dashed border-line px-4 py-6 text-center text-sm text-ink-faint">No summary was found.</p>
+      {% endif %}
+    </section>
+
+    <section class="mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" aria-labelledby="import-work-title">
+      <h2 id="import-work-title" class="text-base font-semibold text-ink">Work history</h2>
+      {% include "tracker/partials/resume_import_items.html" with items=work noun="position" empty="No positions were found." %}
+    </section>
+
+    <section class="mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" aria-labelledby="import-skills-title">
+      <h2 id="import-skills-title" class="text-base font-semibold text-ink">Skills</h2>
+      {% if skills %}
+        <p class="mt-1 text-xs text-ink-faint">Skills from your resume that are in the skills list.</p>
+        <ul class="mt-4 flex flex-wrap gap-2">
+          {% for skill in skills %}
+            <li>
+              {% if skill.existing %}
+                <span class="inline-flex items-center gap-2 rounded-lg border border-line px-2.5 py-1 text-sm text-ink-faint" title="Already on your resume">
+                  {% include "partials/icon.html" with name="check" class="size-3.5" %}{{ skill.name }}
+                </span>
+              {% else %}
+                <label class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-line bg-white/5 px-2.5 py-1 text-sm text-ink transition has-checked:border-accent/50 has-checked:bg-accent/10">
+                  <input type="checkbox" name="skills" value="{{ skill.id }}" {% if skill.checked %}checked{% endif %} class="size-3.5 cursor-pointer rounded accent-accent">
+                  {{ skill.name }}
+                </label>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="mt-4 rounded-xl border border-dashed border-line px-4 py-6 text-center text-sm text-ink-faint">No skills from the skills list were found.</p>
+      {% endif %}
+    </section>
+
+    <section class="mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" aria-labelledby="import-education-title">
+      <h2 id="import-education-title" class="text-base font-semibold text-ink">Education</h2>
+      {% include "tracker/partials/resume_import_items.html" with items=education noun="school" empty="No education was found." %}
+    </section>
+
+    <section class="mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" aria-labelledby="import-certifications-title">
+      <h2 id="import-certifications-title" class="text-base font-semibold text-ink">Certifications</h2>
+      {% include "tracker/partials/resume_import_items.html" with items=certifications noun="certification" empty="No certifications were found." %}
+    </section>
+
+    <div class="mt-8 flex items-center gap-3">
+      <button type="submit" class="cursor-pointer rounded-xl bg-linear-to-r from-accent to-accent-2 px-4 py-2.5 text-sm font-semibold text-canvas shadow-lg shadow-accent/20 transition hover:brightness-110 focus-visible:ring-4 focus-visible:ring-accent/30 focus-visible:outline-none">
+        Add to resume
+      </button>
+      <a href="{% url 'tracker:resume' %}" class="px-2 py-2.5 text-sm text-ink-muted transition hover:text-ink">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

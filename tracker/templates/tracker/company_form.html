@@ -1,0 +1,73 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}{{ heading }} · Job Tracker{% endblock %}
+{% block breadcrumb %}<a href="{% url 'tracker:companies' %}" class="text-ink-muted transition hover:text-ink">Companies</a><span class="mx-2 text-ink-faint" aria-hidden="true">›</span>{% if company_url %}<a href="{{ company_url }}" class="text-ink-muted transition hover:text-ink">{{ company_name }}</a><span class="mx-2 text-ink-faint" aria-hidden="true">›</span>Edit{% else %}Add company{% endif %}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl">
+  <h1 class="text-2xl font-semibold tracking-tight">{{ heading }}</h1>
+  {% if not company_name %}<p class="mt-1 text-sm text-ink-muted">A company you're applying to, or a recruiter you're working with.</p>{% endif %}
+
+  <form method="post" action="{{ action }}" class="mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" novalidate>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="mb-5 rounded-xl border border-danger/30 bg-danger/10 px-3.5 py-3 text-sm text-rose-200" role="alert">
+        {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="grid gap-y-8">
+      <div class="form-field">
+        <label for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+        {{ form.name }}
+        {{ form.name.errors }}
+      </div>
+
+      <div class="form-field">
+        <label for="{{ form.website.id_for_label }}">{{ form.website.label }} <span class="font-normal text-ink-faint">(optional)</span></label>
+        {{ form.website }}
+        <p class="mt-1.5 text-xs text-ink-faint">{{ form.website.help_text }}</p>
+        {{ form.website.errors }}
+      </div>
+
+      <div class="form-field">
+        <label for="{{ form.mission_statement.id_for_label }}">{{ form.mission_statement.label }} <span class="font-normal text-ink-faint">(optional)</span></label>
+        {{ form.mission_statement }}
+        <p class="mt-1.5 text-xs text-ink-faint">{{ form.mission_statement.help_text }}</p>
+        {{ form.mission_statement.errors }}
+      </div>
+
+      <div class="flex items-start gap-3">
+        <input type="checkbox" name="{{ form.is_staffing_agency.html_name }}" id="{{ form.is_staffing_agency.id_for_label }}"
+               {% if form.is_staffing_agency.value %}checked{% endif %}
+               class="mt-0.5 size-4 shrink-0 cursor-pointer rounded accent-accent">
+        <div>
+          <label for="{{ form.is_staffing_agency.id_for_label }}" class="cursor-pointer text-sm font-medium text-ink">{{ form.is_staffing_agency.label }}</label>
+          <p class="mt-0.5 text-xs text-ink-faint">{{ form.is_staffing_agency.help_text }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-8 flex items-center gap-3">
+      <button type="submit" class="cursor-pointer rounded-xl bg-linear-to-r from-accent to-accent-2 px-4 py-2.5 text-sm font-semibold text-canvas shadow-lg shadow-accent/20 transition hover:brightness-110 focus-visible:ring-4 focus-visible:ring-accent/30 focus-visible:outline-none">
+        {{ submit_label }}
+      </button>
+      <a href="{% if company_url %}{{ company_url }}{% else %}{% url 'tracker:companies' %}{% endif %}" class="px-2 py-2.5 text-sm text-ink-muted transition hover:text-ink">Cancel</a>
+      {% if delete_action %}
+        <button type="submit" form="delete-form" class="ml-auto inline-flex cursor-pointer items-center gap-2 rounded-xl border border-danger/40 px-3.5 py-2 text-sm font-medium text-rose-300 transition hover:bg-danger/10 focus-visible:ring-4 focus-visible:ring-danger/30 focus-visible:outline-none">
+          {% include "partials/icon.html" with name="trash" %}
+          Delete company
+        </button>
+      {% endif %}
+    </div>
+  </form>
+
+  {% if delete_action %}
+    {# Submitted by the Delete button in the form's button row (form="delete-form"). #}
+    <form id="delete-form" method="post" action="{{ delete_action }}" data-confirm="Delete {{ company_name }}? Its jobs, contacts and applications will be hidden too." hidden>
+      {% csrf_token %}
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

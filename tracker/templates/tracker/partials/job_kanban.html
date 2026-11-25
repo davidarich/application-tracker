@@ -1,0 +1,78 @@
+{% load tracker_status %}
+{% comment %}
+  The jobs board: a column per open status, with a card per job. Each card's
+  status dropdown moves the job (tracker.views.job_status).
+  Context: columns (tracker.jobs.KanbanColumn), card_statuses, filters,
+  companies, has_jobs.
+{% endcomment %}
+<section id="jobs" class="mt-6 scroll-mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" aria-labelledby="jobs-title">
+  <h2 id="jobs-title" class="text-base font-semibold text-ink">Your jobs</h2>
+
+  {% if not has_jobs %}
+    <div class="mt-5 grid place-items-center rounded-xl border border-dashed border-line px-6 py-14 text-center">
+      <p class="text-sm font-medium text-ink">No jobs yet</p>
+      <p class="mt-1 text-xs text-ink-faint">Add the jobs you're interested in to track your applications.</p>
+    </div>
+  {% else %}
+    {% include "tracker/partials/job_filters.html" %}
+
+    <p class="mt-3 text-xs text-ink-faint">Drag a card by its handle to another column, or use its status menu, to change a job's status.</p>
+
+    {# kanban-dnd.js: drop a card on another column to change its status. #}
+    <div class="mt-4 grid auto-cols-[minmax(13rem,1fr)] grid-flow-col gap-4 overflow-x-auto pb-2" data-kanban>
+      {% for column in columns %}
+        <section class="flex min-h-40 flex-col rounded-xl border border-line bg-canvas/40 p-3 transition" aria-labelledby="column-{{ forloop.counter }}" data-kanban-column data-status="{{ column.status|default:'' }}"{% if column.slot %} style="--series: var(--chart-{{ column.slot }})"{% endif %}>
+          <h3 id="column-{{ forloop.counter }}" class="flex items-center gap-2 px-1 text-xs font-medium text-ink-muted">
+            {% if column.slot %}
+              <span class="size-2 rounded-full bg-(--series)" aria-hidden="true"></span>
+            {% else %}
+              <span class="size-2 rounded-full border border-ink-faint" aria-hidden="true"></span>
+            {% endif %}
+            {{ column.label }}
+            <span class="ml-auto rounded-full bg-white/5 px-2 py-0.5 text-ink-faint tabular-nums">{{ column.count }}</span>
+          </h3>
+          <ul class="mt-3 space-y-2">
+            {% for job in column.jobs %}
+              <li id="job-{{ job.id }}" class="scroll-mt-24 rounded-xl border border-line bg-raised p-3 transition" data-kanban-card>
+                <div class="flex items-start gap-2">
+                  <div class="min-w-0 flex-1">
+                    <a href="{% url 'tracker:job_detail' job.id %}" class="text-sm font-medium text-ink underline-offset-2 hover:underline focus-visible:underline">{{ job.title }}</a>
+                    <p class="mt-0.5 text-xs text-ink-muted">{{ job.company.name }}</p>
+                  </div>
+                  {# Drag handle (kanban-dnd.js). Mouse only: the status menu below is the keyboard and touch way to move the job. #}
+                  <span class="-mt-0.5 -mr-1 grid size-6 shrink-0 cursor-grab place-items-center rounded text-ink-faint transition select-none hover:bg-white/10 hover:text-ink active:cursor-grabbing" draggable="true" title="Drag to move to another column" aria-hidden="true" data-kanban-handle>
+                    {% include "partials/icon.html" with name="grip" %}
+                  </span>
+                </div>
+                <form method="post" action="{% url 'tracker:job_status' job.id %}" class="mt-3 flex items-center gap-2">
+                  {% csrf_token %}
+                  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                  <label for="status-{{ job.id }}" class="sr-only">Status of {{ job.title }} at {{ job.company.name }}</label>
+                  <div class="relative flex-1">
+                    <select id="status-{{ job.id }}" name="status" data-autosubmit
+                            class="w-full cursor-pointer appearance-none rounded-lg border border-line bg-panel py-1.5 pr-8 pl-2.5 text-xs text-ink transition outline-none focus:border-accent/60 focus:ring-4 focus:ring-accent/15">
+                      {% if not column.status %}<option value="" selected>Not applied</option>{% endif %}
+                      {% for value, label in card_statuses %}
+                        <option value="{{ value }}"{% if value == column.status %} selected{% endif %}>{{ label }}</option>
+                      {% endfor %}
+                    </select>
+                    <span class="pointer-events-none absolute inset-y-0 right-2.5 grid place-items-center text-ink-faint">
+                      {% include "partials/icon.html" with name="chevron-down" class="size-3" %}
+                    </span>
+                  </div>
+                  {# Only needed without JavaScript (autosubmit.js hides it). #}
+                  <button type="submit" data-autosubmit-fallback class="cursor-pointer rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-ink hover:bg-white/10">Save</button>
+                </form>
+              </li>
+            {% empty %}
+              <li class="rounded-xl border border-dashed border-line px-3 py-6 text-center text-xs text-ink-faint">No jobs</li>
+            {% endfor %}
+          </ul>
+          {% if column.count > column.jobs|length %}
+            <p class="mt-2 px-1 text-xs text-ink-faint">Showing {{ column.jobs|length }} of {{ column.count }}.</p>
+          {% endif %}
+        </section>
+      {% endfor %}
+    </div>
+  {% endif %}
+</section>

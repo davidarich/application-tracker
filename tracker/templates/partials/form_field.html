@@ -1,0 +1,9 @@
+{% comment %}
+  One form field: label (with "(optional)" when not required), widget, help
+  text and errors. Usage: {% include "partials/form_field.html" with field=form.title %}
+{% endcomment %}<div class="form-field">
+  <label for="{{ field.id_for_label }}">{{ field.label }}{% if not field.field.required %} <span class="font-normal text-ink-faint">(optional)</span>{% endif %}</label>
+  {{ field }}
+  {% if field.help_text %}<p class="mt-1.5 text-xs text-ink-faint">{{ field.help_text }}</p>{% endif %}
+  {{ field.errors }}
+</div>

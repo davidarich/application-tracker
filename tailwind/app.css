@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+/* Scan the Django templates and scripts for class names. */
+@source "../tracker/templates";
+@source "../accounts/templates";
+@source "../assets/js";
+
+/*
+ * Design tokens. Each --color-* becomes a utility, e.g. bg-canvas,
+ * text-ink-muted, border-line.
+ */
+@theme {
+  --font-sans: "Inter", "Segoe UI Variable", ui-sans-serif, system-ui, sans-serif;
+
+  /* Surfaces, darkest to lightest */
+  --color-canvas: #060708;
+  --color-panel: #0d0e10;
+  --color-raised: #15171a;
+  --color-line: rgb(255 255 255 / 0.08);
+
+  /* Text */
+  --color-ink: #f4f5f6;
+  --color-ink-muted: #9a9ea6;
+  --color-ink-faint: #61656d;
+
+  /* Accent (green to teal, as in the charts of the reference design) */
+  --color-accent: #34d399;
+  --color-accent-2: #2dd4bf;
+  --color-danger: #f43f5e;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  /*
+   * Categorical chart colours, in fixed order (slot 1 first). Validated as a
+   * set for colour-vision deficiency and contrast against the panel surface.
+   * Each status keeps its slot, so its colour never changes.
+   */
+  :root {
+    --chart-1: #3987e5; /* blue */
+    --chart-2: #d95926; /* orange */
+    --chart-3: #199e70; /* aqua */
+    --chart-4: #c98500; /* yellow */
+    --chart-5: #d55181; /* magenta */
+    /* Ignored is never charted; its neutral grey marks it as inactive in tables. */
+    --chart-6: #7d818a; /* grey */
+  }
+
+  body {
+    @apply bg-canvas font-sans text-ink antialiased;
+  }
+}
+
+@layer components {
+  /* Text inputs rendered by Django form widgets inside a .form-field. */
+  .form-field
+    :where(input:not([type="checkbox"], [type="radio"], [type="hidden"]), select, textarea) {
+    @apply w-full rounded-xl border border-line bg-raised px-3.5 py-2.5 text-sm text-ink
+      transition outline-none placeholder:text-ink-faint
+      focus:border-accent/60 focus:ring-4 focus:ring-accent/15;
+  }
+
+  /* Django marks inputs with errors aria-invalid="true". */
+  .form-field :where(input, select, textarea)[aria-invalid="true"] {
+    @apply border-danger/60 focus:border-danger/70 focus:ring-danger/15;
+  }
+
+  .form-field label {
+    @apply mb-1.5 block text-xs font-medium text-ink-muted;
+  }
+
+  .form-field .errorlist,
+  .form-errors {
+    @apply mt-1.5 text-xs text-danger;
+  }
+}

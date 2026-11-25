@@ -1,0 +1,59 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}Recently deleted · Admin · Job Tracker{% endblock %}
+{% block breadcrumb %}Recently deleted{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-semibold tracking-tight">Recently deleted</h1>
+<p class="mt-1 text-sm text-ink-muted">Deleted shared records are hidden for every user. Restore them here.</p>
+
+{# One section per shared, staff-managed model that can be soft-deleted. #}
+
+<section class="mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" aria-labelledby="deleted-skills-title">
+  <div class="flex items-baseline justify-between gap-2">
+    <h2 id="deleted-skills-title" class="text-base font-semibold text-ink">Skills</h2>
+    {% if skill_count %}<p class="text-xs text-ink-faint">{{ skill_count }} deleted{% if skill_count > limit %}, showing the {{ limit }} most recent{% endif %}</p>{% endif %}
+  </div>
+  <p class="mt-1 text-xs text-ink-faint">Deleted skills aren't offered on job forms or shown on jobs. Restoring a skill puts it back on the jobs that had it.</p>
+  {% if skills %}
+    <div class="mt-4 overflow-x-auto">
+      <table class="w-full text-left text-sm">
+        <thead>
+          <tr class="border-b border-line text-xs text-ink-faint">
+            <th scope="col" class="py-2.5 pr-4 font-medium">Name</th>
+            <th scope="col" class="py-2.5 pr-4 font-medium max-sm:hidden">Description</th>
+            <th scope="col" class="py-2.5 pr-4 text-right font-medium max-sm:hidden">Deleted</th>
+            <th scope="col" class="py-2.5 text-right font-medium"><span class="sr-only">Restore</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for skill in skills %}
+            <tr class="border-b border-line/60 last:border-0">
+              <td class="py-3 pr-4 font-medium whitespace-nowrap text-ink">{{ skill.name }}</td>
+              <td class="py-3 pr-4 text-ink-muted max-sm:hidden">
+                {% if skill.description %}{{ skill.description|truncatechars:100 }}{% else %}<span class="text-ink-faint" aria-label="No description">—</span>{% endif %}
+              </td>
+              <td class="py-3 pr-4 text-right whitespace-nowrap text-ink-faint tabular-nums max-sm:hidden">
+                {% if skill.deleted_at %}<time datetime="{{ skill.deleted_at|date:'c' }}">{{ skill.deleted_at|date:"M j, Y" }}</time>{% else %}—{% endif %}
+              </td>
+              <td class="py-3">
+                <div class="flex justify-end">
+                  <form method="post" action="{% url 'tracker:skill_restore' skill.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-ink transition hover:bg-white/10 focus-visible:ring-4 focus-visible:ring-accent/30 focus-visible:outline-none" aria-label="Restore {{ skill.name }}">
+                      {% include "partials/icon.html" with name="restore" class="size-3.5" %}
+                      Restore
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="mt-4 rounded-xl border border-dashed border-line px-6 py-8 text-center text-sm text-ink-faint">No deleted skills.</p>
+  {% endif %}
+</section>
+{% endblock %}

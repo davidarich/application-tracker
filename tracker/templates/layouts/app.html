@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block body %}
+{% with url_name=request.resolver_match.url_name %}
+<div class="min-h-full lg:flex">
+
+  {# Sidebar: a top strip on small screens, a fixed column from lg up #}
+  <aside class="flex flex-col gap-6 border-b border-line bg-panel px-5 py-5 lg:fixed lg:inset-y-0 lg:w-64 lg:border-r lg:border-b-0 lg:py-7">
+    <a href="{% url 'tracker:dashboard' %}" class="text-sm font-bold tracking-[0.2em] text-ink">JOB TRACKER</a>
+
+    <p class="hidden text-base leading-tight font-semibold text-ink lg:block">
+      Welcome back,<br>{{ user.get_short_name|default:user.get_username }}
+    </p>
+
+    <nav class="flex gap-6 lg:flex-1 lg:flex-col lg:border-t lg:border-line lg:pt-6" aria-label="Main">
+      <div class="flex gap-1 lg:flex-col">
+        <p class="mb-2 hidden px-3 text-xs text-ink-faint lg:block">Overview</p>
+        <a href="{% url 'tracker:dashboard' %}"
+           {% if url_name == "dashboard" %}aria-current="page"{% endif %}
+           class="relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition {% if url_name == 'dashboard' %}bg-linear-to-r from-white/12 to-white/3 text-ink ring-1 ring-white/6{% else %}text-ink-muted hover:bg-white/5 hover:text-ink{% endif %}">
+          {% include "partials/icon.html" with name="dashboard" %}
+          <span class="sr-only sm:not-sr-only">Dashboard</span>
+          {% if url_name == "dashboard" %}<span class="absolute right-3 hidden h-4 w-0.5 rounded-full bg-ink lg:block"></span>{% endif %}
+        </a>
+        <a href="{% url 'tracker:jobs' %}"
+           {% if url_name == "jobs" %}aria-current="page"{% endif %}
+           class="relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition {% if url_name == 'jobs' or url_name == 'job_add' or url_name == 'job_edit' or url_name == 'job_detail' %}bg-linear-to-r from-white/12 to-white/3 text-ink ring-1 ring-white/6{% else %}text-ink-muted hover:bg-white/5 hover:text-ink{% endif %}">
+          {% include "partials/icon.html" with name="briefcase" %}
+          <span class="sr-only sm:not-sr-only">Jobs</span>
+          {% if url_name == "jobs" or url_name == "job_add" or url_name == "job_edit" or url_name == "job_detail" %}<span class="absolute right-3 hidden h-4 w-0.5 rounded-full bg-ink lg:block"></span>{% endif %}
+        </a>
+        <a href="{% url 'tracker:companies' %}"
+           {% if url_name == "companies" %}aria-current="page"{% endif %}
+           class="relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition {% if url_name == 'companies' or url_name == 'company_add' or url_name == 'company_edit' or url_name == 'company_detail' or url_name == 'contact_add' or url_name == 'contact_edit' %}bg-linear-to-r from-white/12 to-white/3 text-ink ring-1 ring-white/6{% else %}text-ink-muted hover:bg-white/5 hover:text-ink{% endif %}">
+          {% include "partials/icon.html" with name="building" %}
+          <span class="sr-only sm:not-sr-only">Companies</span>
+          {% if url_name == "companies" or url_name == "company_add" or url_name == "company_edit" or url_name == "company_detail" or url_name == "contact_add" or url_name == "contact_edit" %}<span class="absolute right-3 hidden h-4 w-0.5 rounded-full bg-ink lg:block"></span>{% endif %}
+        </a>
+        <a href="{% url 'tracker:resume' %}"
+           {% if url_name == "resume" %}aria-current="page"{% endif %}
+           class="relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition {% if url_name == 'resume' or url_name == 'resume_entry_add' or url_name == 'resume_entry_edit' or url_name == 'resume_import' or url_name == 'resume_import_review' %}bg-linear-to-r from-white/12 to-white/3 text-ink ring-1 ring-white/6{% else %}text-ink-muted hover:bg-white/5 hover:text-ink{% endif %}">
+          {% include "partials/icon.html" with name="document" %}
+          <span class="sr-only sm:not-sr-only">Resume</span>
+          {% if url_name == 'resume' or url_name == 'resume_entry_add' or url_name == 'resume_entry_edit' or url_name == 'resume_import' or url_name == 'resume_import_review' %}<span class="absolute right-3 hidden h-4 w-0.5 rounded-full bg-ink lg:block"></span>{% endif %}
+        </a>
+      </div>
+
+      {% if user.is_staff %}
+        <div class="flex gap-1 lg:flex-col">
+          <p class="mb-2 hidden px-3 text-xs text-ink-faint lg:block">Admin</p>
+          <a href="{% url 'tracker:skills' %}"
+             {% if url_name == "skills" %}aria-current="page"{% endif %}
+             class="relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition {% if url_name == 'skills' or url_name == 'skill_add' or url_name == 'skill_edit' %}bg-linear-to-r from-white/12 to-white/3 text-ink ring-1 ring-white/6{% else %}text-ink-muted hover:bg-white/5 hover:text-ink{% endif %}">
+            {% include "partials/icon.html" with name="sparkles" %}
+            <span class="sr-only sm:not-sr-only">Skills</span>
+            {% if url_name == "skills" or url_name == "skill_add" or url_name == "skill_edit" %}<span class="absolute right-3 hidden h-4 w-0.5 rounded-full bg-ink lg:block"></span>{% endif %}
+          </a>
+          <a href="{% url 'tracker:admin_recently_deleted' %}"
+             {% if url_name == "admin_recently_deleted" %}aria-current="page"{% endif %}
+             class="relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition {% if url_name == 'admin_recently_deleted' %}bg-linear-to-r from-white/12 to-white/3 text-ink ring-1 ring-white/6{% else %}text-ink-muted hover:bg-white/5 hover:text-ink{% endif %}">
+            {% include "partials/icon.html" with name="trash" %}
+            <span class="sr-only sm:not-sr-only">Recently deleted</span>
+            {% if url_name == "admin_recently_deleted" %}<span class="absolute right-3 hidden h-4 w-0.5 rounded-full bg-ink lg:block"></span>{% endif %}
+          </a>
+          <a href="{% url 'admin:index' %}" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-ink-muted transition hover:bg-white/5 hover:text-ink">
+            {% include "partials/icon.html" with name="admin" %}
+            <span class="sr-only sm:not-sr-only">Django admin</span>
+          </a>
+        </div>
+      {% endif %}
+
+      <div class="ml-auto flex gap-1 lg:ml-0 lg:flex-col">
+        <p class="mb-2 hidden px-3 text-xs text-ink-faint lg:block">Account</p>
+        <a href="{% url 'accounts:profile' %}"
+           {% if url_name == "profile" %}aria-current="page"{% endif %}
+           class="relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition {% if url_name == 'profile' %}bg-linear-to-r from-white/12 to-white/3 text-ink ring-1 ring-white/6{% else %}text-ink-muted hover:bg-white/5 hover:text-ink{% endif %}">
+          {% include "partials/icon.html" with name="user" %}
+          <span class="sr-only sm:not-sr-only">Profile</span>
+          {% if url_name == "profile" %}<span class="absolute right-3 hidden h-4 w-0.5 rounded-full bg-ink lg:block"></span>{% endif %}
+        </a>
+        <a href="{% url 'tracker:recently_deleted' %}"
+           {% if url_name == "recently_deleted" %}aria-current="page"{% endif %}
+           class="relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition {% if url_name == 'recently_deleted' %}bg-linear-to-r from-white/12 to-white/3 text-ink ring-1 ring-white/6{% else %}text-ink-muted hover:bg-white/5 hover:text-ink{% endif %}">
+          {% include "partials/icon.html" with name="trash" %}
+          <span class="sr-only sm:not-sr-only">Recently deleted</span>
+          {% if url_name == "recently_deleted" %}<span class="absolute right-3 hidden h-4 w-0.5 rounded-full bg-ink lg:block"></span>{% endif %}
+        </a>
+        <form method="post" action="{% url 'tracker:logout' %}">
+          {% csrf_token %}
+          <button type="submit" class="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm text-ink-muted transition hover:bg-white/5 hover:text-ink">
+            {% include "partials/icon.html" with name="logout" %}
+            <span class="sr-only sm:not-sr-only">Log out</span>
+          </button>
+        </form>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col lg:pl-64">
+    <header class="flex items-center justify-between gap-4 px-5 py-4 lg:px-8 lg:py-5">
+      <nav class="flex items-center gap-2 text-sm text-ink-muted" aria-label="Breadcrumb">
+        <a href="{% url 'tracker:dashboard' %}" class="flex items-center gap-2 transition hover:text-ink">
+          {% include "partials/icon.html" with name="home" %}
+          Home
+        </a>
+        {% include "partials/icon.html" with name="chevron-right" class="size-3.5 text-ink-faint" %}
+        <span class="text-ink">{% block breadcrumb %}{% endblock %}</span>
+      </nav>
+
+      <a href="{% url 'accounts:profile' %}" class="group flex items-center gap-3 rounded-xl" aria-label="Your profile">
+        <div class="hidden text-right sm:block">
+          <p class="text-sm font-medium text-ink">{{ user.get_display_name|default:user.get_username }}</p>
+          <p class="text-xs text-ink-faint">{% if user.is_staff %}Staff{% else %}Member{% endif %}</p>
+        </div>
+        {% if user.avatar %}
+          <img src="{% url 'accounts:avatar' %}?v={{ user.avatar.name|slugify }}" alt="" class="size-10 rounded-full border border-line object-cover transition group-hover:border-white/25">
+        {% else %}
+          <span class="grid size-10 place-items-center rounded-full border border-line bg-raised text-sm font-semibold text-ink uppercase transition group-hover:border-white/25" aria-hidden="true">{{ user.get_short_name|default:user.get_username|first }}</span>
+        {% endif %}
+      </a>
+    </header>
+
+    <main class="flex-1 px-3 pb-3 lg:px-5 lg:pb-5">
+      <div class="min-h-full rounded-3xl border border-line bg-panel/60 p-5 lg:p-8">
+        {% if messages %}
+          <div class="mb-6 space-y-2" role="status">
+            {% for message in messages %}
+              <div class="flex items-center gap-2 rounded-xl border px-4 py-3 text-sm {% if message.level_tag == 'error' %}border-danger/30 bg-danger/10 text-rose-200{% else %}border-accent/30 bg-accent/10 text-emerald-200{% endif %}">
+                {% include "partials/icon.html" with name="check" class="size-4 shrink-0" %}
+                <p>{{ message }}</p>
+                {% if request.session.undo_delete and request.session.undo_delete.id in message.extra_tags %}
+                  {# Restores the last deleted record (tracker.views.undo_delete). #}
+                  <form method="post" action="{% url 'tracker:undo_delete' %}" class="ml-auto">
+                    {% csrf_token %}
+                    <button type="submit" class="cursor-pointer rounded-lg border border-accent/40 px-2.5 py-1 text-sm font-medium text-ink transition hover:bg-accent/15 focus-visible:ring-4 focus-visible:ring-accent/30 focus-visible:outline-none">
+                      Undo
+                    </button>
+                  </form>
+                {% elif request.session.undo_status and request.session.undo_status.token in message.extra_tags %}
+                  {# Puts back the last job status move (tracker.views.undo_status). #}
+                  <form method="post" action="{% url 'tracker:undo_status' %}" class="ml-auto">
+                    {% csrf_token %}
+                    <button type="submit" class="cursor-pointer rounded-lg border border-accent/40 px-2.5 py-1 text-sm font-medium text-ink transition hover:bg-accent/15 focus-visible:ring-4 focus-visible:ring-accent/30 focus-visible:outline-none">
+                      Undo
+                    </button>
+                  </form>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+  </div>
+</div>
+{% endwith %}
+<script src="{% static 'js/confirm-submit.js' %}" defer></script>
+{% endblock %}

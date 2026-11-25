@@ -1,0 +1,106 @@
+{% extends "layouts/app.html" %}
+{% load tracker_status %}
+
+{% block title %}{{ job.title }} · Job Tracker{% endblock %}
+{% block breadcrumb %}<a href="{% url 'tracker:jobs' %}" class="text-ink-muted transition hover:text-ink">Jobs</a><span class="mx-2 text-ink-faint" aria-hidden="true">›</span>{{ job.title }}{% endblock %}
+
+{% block content %}
+{# One of the user's jobs (tracker.views.job_detail). #}
+<div class="max-w-4xl">
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div class="min-w-0">
+      <h1 class="text-2xl font-semibold tracking-tight">{{ job.title }}</h1>
+      <p class="mt-1 text-sm text-ink-muted">
+        <a href="{% url 'tracker:company_detail' job.company.id %}" class="underline-offset-2 transition hover:text-ink hover:underline">{{ job.company.name }}</a>
+      </p>
+      {% with slot=job.latest_status|status_slot %}
+        <p class="mt-3">
+          <span class="inline-flex items-center gap-2 rounded-full border border-line px-2.5 py-1 text-xs text-ink-muted"{% if slot %} style="--series: var(--chart-{{ slot }})"{% endif %}>
+            {% if slot %}<span class="size-2 rounded-full bg-(--series)" aria-hidden="true"></span>{% else %}<span class="size-2 rounded-full border border-ink-faint" aria-hidden="true"></span>{% endif %}
+            {{ job.latest_status|status_label }}
+          </span>
+        </p>
+      {% endwith %}
+    </div>
+    <a href="{% url 'tracker:job_edit' job.id %}" class="inline-flex items-center gap-2 rounded-xl border border-line bg-white/5 px-3.5 py-2 text-sm font-medium text-ink transition hover:bg-white/10 focus-visible:ring-4 focus-visible:ring-accent/30 focus-visible:outline-none">
+      {% include "partials/icon.html" with name="pencil" %}
+      Edit job
+    </a>
+  </div>
+
+  <section class="mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" aria-labelledby="details-title">
+    <h2 id="details-title" class="text-base font-semibold text-ink">Details</h2>
+    <dl class="mt-4 grid gap-x-6 gap-y-5 text-sm sm:grid-cols-2 lg:grid-cols-4">
+      <div>
+        <dt class="text-xs text-ink-faint">Location</dt>
+        <dd class="mt-0.5 text-ink">{{ job.location|default:"Not listed" }}</dd>
+      </div>
+      <div>
+        <dt class="text-xs text-ink-faint">Workplace</dt>
+        <dd class="mt-0.5 text-ink">{{ job.get_workplace_type_display|default:"Not specified" }}</dd>
+      </div>
+      <div>
+        <dt class="text-xs text-ink-faint">Salary</dt>
+        <dd class="mt-0.5 text-ink tabular-nums">
+          {% if job.salary_min and job.salary_max %}{{ job.salary_min|floatformat:"0g" }} – {{ job.salary_max|floatformat:"0g" }}
+          {% elif job.salary_min %}From {{ job.salary_min|floatformat:"0g" }}
+          {% elif job.salary_max %}Up to {{ job.salary_max|floatformat:"0g" }}
+          {% else %}Not listed{% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt class="text-xs text-ink-faint">Updated</dt>
+        <dd class="mt-0.5 text-ink tabular-nums"><time datetime="{{ job.last_updated|date:'c' }}">{{ job.last_updated|date:"M j, Y" }}</time></dd>
+      </div>
+      <div class="sm:col-span-2 lg:col-span-4">
+        <dt class="text-xs text-ink-faint">Job posting</dt>
+        <dd class="mt-0.5 text-ink">
+          {% if job.posting_url %}
+            <a href="{{ job.posting_url }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 break-all underline-offset-2 hover:underline">
+              View job posting
+              {% include "partials/icon.html" with name="external" class="size-3 text-ink-muted" %}
+              <span class="sr-only">(opens in a new tab)</span>
+            </a>
+          {% else %}<span class="text-ink-muted">Not listed</span>{% endif %}
+        </dd>
+      </div>
+      <div class="sm:col-span-2 lg:col-span-4">
+        <dt class="text-xs text-ink-faint">Skills</dt>
+        <dd class="mt-1.5">
+          {% if skills %}
+            <ul class="flex flex-wrap gap-1.5" aria-label="Skills for {{ job.title }}">
+              {% for skill in skills %}<li class="rounded-lg border border-line bg-white/5 px-2 py-0.5 text-xs text-ink">{{ skill.name }}</li>{% endfor %}
+            </ul>
+          {% else %}<span class="text-sm text-ink-muted">None listed</span>{% endif %}
+        </dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" aria-labelledby="description-title">
+    <h2 id="description-title" class="text-base font-semibold text-ink">Job Description</h2>
+    <p class="mt-3 text-sm leading-relaxed whitespace-pre-line {% if job.description %}text-ink{% else %}text-ink-muted{% endif %}">{{ job.description|default:"No description." }}</p>
+  </section>
+
+  <section class="mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" aria-labelledby="history-title">
+    <h2 id="history-title" class="text-base font-semibold text-ink">Status history</h2>
+    {% if history %}
+      <ol class="mt-4 divide-y divide-line">
+        {% for change in history %}
+          <li class="flex items-center justify-between gap-3 py-2.5 text-sm first:pt-0 last:pb-0">
+            {% with slot=change.status|status_slot %}
+              <span class="inline-flex items-center gap-2 text-ink"{% if slot %} style="--series: var(--chart-{{ slot }})"{% endif %}>
+                {% if slot %}<span class="size-2 rounded-full bg-(--series)" aria-hidden="true"></span>{% else %}<span class="size-2 rounded-full border border-ink-faint" aria-hidden="true"></span>{% endif %}
+                {{ change.status|status_label }}
+              </span>
+            {% endwith %}
+            <time datetime="{{ change.changed_at|date:'c' }}" class="text-xs text-ink-muted tabular-nums">{{ change.changed_at|date:"M j, Y, g:i A" }}</time>
+          </li>
+        {% endfor %}
+      </ol>
+    {% else %}
+      <p class="mt-4 rounded-xl border border-dashed border-line px-4 py-6 text-center text-sm text-ink-faint">Not applied yet, so there's no status history.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

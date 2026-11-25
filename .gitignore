@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Django
+db.sqlite3
+*.log
+/staticfiles/
+/data/
+/uploads/*
+!/uploads/.gitkeep
+
+# Tailwind: downloaded CLI binary and compiled stylesheet
+/.django_tailwind_cli/
+/assets/css/tailwind.css
+
+# Environment / editor
+.env
+.vscode/
+.idea/
+.zed/
+
+# Ruff
+.ruff_cache

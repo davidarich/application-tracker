@@ -1,0 +1,65 @@
+{% comment %}
+  The job filters (search, status, company), shared by the table and the board.
+  On the board (kanban) the status filter is left out: its columns are the statuses.
+{% endcomment %}
+<form method="get" action="{% url 'tracker:jobs' %}#jobs" class="mt-4 flex flex-wrap items-end gap-3" role="search" aria-label="Filter jobs" data-job-filters>
+  {% if kanban %}
+    <input type="hidden" name="view" value="kanban">
+  {% else %}
+    {% if list_view %}<input type="hidden" name="view" value="list">{% endif %}
+    <input type="hidden" name="sort" value="{{ filters.sort }}">
+    <input type="hidden" name="per_page" value="{{ filters.per_page }}">
+  {% endif %}
+
+  <div class="min-w-48 flex-1 sm:max-w-xs">
+    <label for="job-search" class="sr-only">Search jobs</label>
+    <div class="relative">
+      <span class="pointer-events-none absolute inset-y-0 left-3 grid place-items-center text-ink-faint">
+        {% include "partials/icon.html" with name="search" class="size-3.5" %}
+      </span>
+      <input id="job-search" type="search" name="q" value="{{ filters.query }}" placeholder="Search title or company" autocomplete="off"
+             class="w-full rounded-xl border border-line bg-raised py-2 pr-3 pl-9 text-sm text-ink transition outline-none placeholder:text-ink-faint focus:border-accent/60 focus:ring-4 focus:ring-accent/15">
+    </div>
+  </div>
+
+  {% if not kanban %}{# The board's columns are the statuses. #}
+    <div class="min-w-36 flex-1 sm:flex-none">
+      <label for="job-status" class="sr-only">Status</label>
+      <div class="relative">
+        <select id="job-status" name="status"
+                class="w-full cursor-pointer appearance-none rounded-xl border border-line bg-raised py-2 pr-9 pl-3 text-sm text-ink transition outline-none focus:border-accent/60 focus:ring-4 focus:ring-accent/15">
+          {% for value, label in status_options %}
+            <option value="{{ value }}" {% if value == filters.status %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <span class="pointer-events-none absolute inset-y-0 right-3 grid place-items-center text-ink-faint">
+          {% include "partials/icon.html" with name="chevron-down" class="size-3.5" %}
+        </span>
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="min-w-36 flex-1 sm:flex-none">
+    <label for="job-company" class="sr-only">Company</label>
+    <div class="relative">
+      <select id="job-company" name="company"
+              class="w-full cursor-pointer appearance-none truncate sm:max-w-56 rounded-xl border border-line bg-raised py-2 pr-9 pl-3 text-sm text-ink transition outline-none focus:border-accent/60 focus:ring-4 focus:ring-accent/15">
+        <option value="">All companies</option>
+        {% for company in companies %}
+          <option value="{{ company.id }}" {% if company.id == filters.company %}selected{% endif %}>{{ company.name }}</option>
+        {% endfor %}
+      </select>
+      <span class="pointer-events-none absolute inset-y-0 right-3 grid place-items-center text-ink-faint">
+        {% include "partials/icon.html" with name="chevron-down" class="size-3.5" %}
+      </span>
+    </div>
+  </div>
+
+  {# Selects apply on change via job-filters.js; this button covers no-JS and the search box #}
+  <button type="submit" class="cursor-pointer rounded-xl border border-line bg-white/5 px-3.5 py-2 text-sm font-medium text-ink transition hover:bg-white/10 focus-visible:ring-4 focus-visible:ring-accent/30 focus-visible:outline-none">
+    Apply
+  </button>
+  {% if filters.is_filtered %}
+    <a href="{% url 'tracker:jobs' %}{% if kanban %}?view=kanban{% elif list_view %}?view=list{% endif %}#jobs" class="px-1 py-2 text-sm text-ink-muted underline-offset-2 transition hover:text-ink hover:underline">Reset</a>
+  {% endif %}
+</form>

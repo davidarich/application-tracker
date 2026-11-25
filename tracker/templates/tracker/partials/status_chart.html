@@ -1,0 +1,117 @@
+{% comment %}
+  Stacked area chart of applications by status over the last days.
+  Context: chart (tracker.charts.StatusChart). The hover layer is
+  assets/js/status-chart.js, fed by the "status-chart-data" json_script.
+{% endcomment %}
+<section class="mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" aria-labelledby="status-chart-title">
+  <div class="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
+    <div>
+      <h2 id="status-chart-title" class="text-base font-semibold text-ink">Applications by status</h2>
+      <p class="mt-0.5 text-xs text-ink-faint">Last {{ chart.days|length }} days, counted at the end of each day. Closed and ignored jobs aren't shown.</p>
+    </div>
+    <ul class="flex flex-wrap gap-x-4 gap-y-2" aria-label="Legend">
+      {% for band in chart.bands %}
+        <li class="flex items-center gap-2 text-xs text-ink-muted" style="--series: var(--chart-{{ band.slot }})">
+          <span class="size-2.5 rounded-xs bg-(--series)" aria-hidden="true"></span>
+          {{ band.label }}
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  {% if chart.is_empty %}
+    <div class="mt-6 grid h-64 place-items-center rounded-xl border border-dashed border-line text-center">
+      <div>
+        <p class="text-sm font-medium text-ink">No open applications in the last {{ chart.days|length }} days</p>
+        <p class="mt-1 text-xs text-ink-faint">Applications you add will show up here by status.</p>
+      </div>
+    </div>
+  {% else %}
+    <div class="mt-6 grid grid-cols-[auto_1fr] gap-x-3 sm:grid-cols-[auto_1fr_7rem]" data-status-chart data-source="status-chart-data">
+      {# Y axis #}
+      <div class="relative h-64 w-6" aria-hidden="true">
+        {% for tick in chart.ticks %}
+          <span class="absolute right-0 -translate-y-1/2 text-[11px] text-ink-faint tabular-nums" style="top: {{ tick.top|stringformat:'.3f' }}%">{{ tick.value }}</span>
+        {% endfor %}
+      </div>
+
+      {# Plot #}
+      <div class="relative h-64 cursor-crosshair rounded-xs outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+           data-plot tabindex="0" role="img"
+           aria-label="Stacked area chart of applications by status for the last {{ chart.days|length }} days. Use the left and right arrow keys to read each day; the table below lists every value.">
+        {% for tick in chart.ticks %}
+          <div class="absolute inset-x-0 border-t {% if forloop.first %}border-white/15{% else %}border-line{% endif %}" style="top: {{ tick.top|stringformat:'.3f' }}%" aria-hidden="true"></div>
+        {% endfor %}
+
+        <svg class="absolute inset-0 size-full overflow-visible" viewBox="0 0 {{ chart.width }} {{ chart.height }}" preserveAspectRatio="none" aria-hidden="true">
+          {% for band in chart.bands %}
+            <g style="--series: var(--chart-{{ band.slot }})">
+              <path d="{{ band.area_path }}" class="fill-(--series)" fill-opacity="0.12"/>
+              <path d="{{ band.line_path }}" class="stroke-(--series)" fill="none" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+            </g>
+          {% endfor %}
+        </svg>
+
+        {# Hover layer, driven by status-chart.js #}
+        <div class="pointer-events-none absolute inset-y-0 hidden w-px bg-white/25" data-crosshair></div>
+        <div class="pointer-events-none absolute inset-0" data-dots></div>
+        <div class="pointer-events-none absolute top-2 z-10 hidden min-w-40 rounded-xl border border-line bg-raised/95 px-3 py-2.5 shadow-xl shadow-black/40 backdrop-blur" data-tooltip role="status" aria-live="polite"></div>
+      </div>
+
+      {# Direct labels for the bands at today's edge #}
+      <div class="relative hidden h-64 sm:block" aria-hidden="true">
+        {% for band in chart.bands %}
+          {% if band.label_top is not None %}
+            <span class="absolute left-0 flex -translate-y-1/2 items-center gap-1.5 text-xs whitespace-nowrap" style="top: {{ band.label_top|stringformat:'.3f' }}%; --series: var(--chart-{{ band.slot }})">
+              <span class="h-0.5 w-2.5 rounded-full bg-(--series)"></span>
+              <span class="font-semibold text-ink tabular-nums">{{ band.latest }}</span>
+              <span class="text-ink-muted">{{ band.label }}</span>
+            </span>
+          {% endif %}
+        {% endfor %}
+      </div>
+
+      {# X axis #}
+      <div class="relative col-start-2 mt-2 h-4" aria-hidden="true">
+        {% for day in chart.day_labels %}
+          <span class="absolute text-[11px] whitespace-nowrap tabular-nums
+                       {% if day.align == 'start' %}translate-x-0{% elif day.align == 'end' %}-translate-x-full{% else %}-translate-x-1/2{% endif %}
+                       {% if day.is_today %}font-medium text-ink-muted{% else %}text-ink-faint{% endif %}
+                       {% if not day.on_mobile %}max-sm:hidden{% endif %}
+                       {% if not day.on_desktop %}sm:hidden{% endif %}"
+                style="left: {{ day.left|stringformat:'.3f' }}%">{{ day.text }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    {{ chart_data|json_script:"status-chart-data" }}
+  {% endif %}
+
+  {# Table view: every value, without hovering #}
+  <details class="group mt-5 border-t border-line pt-4">
+    <summary class="cursor-pointer list-none text-xs font-medium text-ink-muted transition select-none hover:text-ink">
+      <span class="group-open:hidden">Show data table</span>
+      <span class="hidden group-open:inline">Hide data table</span>
+    </summary>
+    <div class="mt-3 overflow-x-auto">
+      <table class="w-full text-left text-xs">
+        <caption class="sr-only">Applications by status at the end of each day</caption>
+        <thead class="text-ink-faint">
+          <tr class="border-b border-line">
+            <th scope="col" class="py-2 pr-4 font-medium">Date</th>
+            {% for band in chart.bands %}<th scope="col" class="px-3 py-2 text-right font-medium">{{ band.label }}</th>{% endfor %}
+            <th scope="col" class="py-2 pl-3 text-right font-medium">Total</th>
+          </tr>
+        </thead>
+        <tbody class="text-ink-muted tabular-nums">
+          {% for row in chart.rows %}
+            <tr class="border-b border-line/60 last:border-0">
+              <th scope="row" class="py-2 pr-4 font-normal whitespace-nowrap text-ink-muted">{{ row.day|date:"D M j" }}</th>
+              {% for count in row.counts %}<td class="px-3 py-2 text-right">{{ count }}</td>{% endfor %}
+              <td class="py-2 pl-3 text-right font-medium text-ink">{{ row.total }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
+</section>

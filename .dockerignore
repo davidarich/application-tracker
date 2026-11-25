@@ -1,0 +1,22 @@
+.git
+.gitignore
+.dockerignore
+Dockerfile
+.venv
+venv
+env
+__pycache__
+*.py[cod]
+db.sqlite3
+staticfiles
+data
+.env
+.vscode
+.idea
+.zed
+.ruff_cache
+uploads
+.django_tailwind_cli
+assets/css/tailwind.css
+# Test fixtures (e.g. a real resume) don't belong in the image.
+**/tests/fixtures

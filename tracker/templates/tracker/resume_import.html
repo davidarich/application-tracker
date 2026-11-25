@@ -1,0 +1,35 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}Fill in from resume · Job Tracker{% endblock %}
+{% block breadcrumb %}<a href="{% url 'tracker:resume' %}" class="text-ink-muted transition hover:text-ink">Resume</a><span class="mx-2 text-ink-faint" aria-hidden="true">›</span>Fill in from resume{% endblock %}
+
+{% block content %}
+{# Upload a resume PDF to parse (tracker.resume_import_views.resume_import). #}
+<div class="max-w-2xl">
+  <h1 class="text-2xl font-semibold tracking-tight">Fill in from resume</h1>
+  <p class="mt-1 text-sm text-ink-muted">Upload your resume and we'll pick out your summary, work history, skills, education and certifications.</p>
+
+  <form method="post" action="{% url 'tracker:resume_import' %}" enctype="multipart/form-data" class="mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" novalidate>
+    {% csrf_token %}
+    <div class="form-field">
+      <label for="{{ form.file.id_for_label }}">{{ form.file.label }}</label>
+      {{ form.file }}
+      <p class="mt-1.5 text-xs text-ink-faint">A PDF of up to 5 MB, exported from a word processor (scanned resumes can't be read).</p>
+      {{ form.file.errors }}
+    </div>
+
+    <ul class="mt-6 space-y-1.5 text-xs text-ink-muted">
+      <li class="flex gap-2">{% include "partials/icon.html" with name="check" class="mt-0.5 size-3.5 shrink-0 text-accent" %}Nothing is added until you review it on the next page.</li>
+      <li class="flex gap-2">{% include "partials/icon.html" with name="check" class="mt-0.5 size-3.5 shrink-0 text-accent" %}Your file is saved with your resume (replacing any earlier upload) so you can download it later. It isn't sent anywhere.</li>
+      <li class="flex gap-2">{% include "partials/icon.html" with name="check" class="mt-0.5 size-3.5 shrink-0 text-accent" %}Resumes are laid out in many ways, so check what's found before adding it.</li>
+    </ul>
+
+    <div class="mt-8 flex items-center gap-3">
+      <button type="submit" class="cursor-pointer rounded-xl bg-linear-to-r from-accent to-accent-2 px-4 py-2.5 text-sm font-semibold text-canvas shadow-lg shadow-accent/20 transition hover:brightness-110 focus-visible:ring-4 focus-visible:ring-accent/30 focus-visible:outline-none">
+        Read resume
+      </button>
+      <a href="{% url 'tracker:resume' %}" class="px-2 py-2.5 text-sm text-ink-muted transition hover:text-ink">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

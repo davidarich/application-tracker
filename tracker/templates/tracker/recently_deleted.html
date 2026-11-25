@@ -1,0 +1,154 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}Recently deleted · Job Tracker{% endblock %}
+{% block breadcrumb %}Recently deleted{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-semibold tracking-tight">Recently deleted</h1>
+<p class="mt-1 text-sm text-ink-muted">Deleted companies, jobs and resume entries are hidden everywhere else. Restore them here.</p>
+
+<section class="mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" aria-labelledby="deleted-companies-title">
+  <div class="flex items-baseline justify-between gap-2">
+    <h2 id="deleted-companies-title" class="text-base font-semibold text-ink">Companies</h2>
+    {% if company_count %}<p class="text-xs text-ink-faint">{{ company_count }} deleted{% if company_count > limit %}, showing the {{ limit }} most recent{% endif %}</p>{% endif %}
+  </div>
+  <p class="mt-1 text-xs text-ink-faint">Restoring a company brings back its jobs too.</p>
+  {% if companies %}
+    <div class="mt-4 overflow-x-auto">
+      <table class="w-full text-left text-sm">
+        <thead>
+          <tr class="border-b border-line text-xs text-ink-faint">
+            <th scope="col" class="py-2.5 pr-4 font-medium">Name</th>
+            <th scope="col" class="py-2.5 pr-4 text-right font-medium max-sm:hidden">Jobs</th>
+            <th scope="col" class="py-2.5 pr-4 text-right font-medium max-sm:hidden">Deleted</th>
+            <th scope="col" class="py-2.5 text-right font-medium"><span class="sr-only">Restore</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for company in companies %}
+            <tr class="border-b border-line/60 last:border-0">
+              <td class="py-3 pr-4 font-medium text-ink">{{ company.name }}</td>
+              <td class="py-3 pr-4 text-right text-ink-muted tabular-nums max-sm:hidden">{{ company.job_count }}</td>
+              <td class="py-3 pr-4 text-right whitespace-nowrap text-ink-faint tabular-nums max-sm:hidden">
+                {% if company.deleted_at %}<time datetime="{{ company.deleted_at|date:'c' }}">{{ company.deleted_at|date:"M j, Y" }}</time>{% else %}—{% endif %}
+              </td>
+              <td class="py-3">
+                <div class="flex justify-end">
+                  <form method="post" action="{% url 'tracker:company_restore' company.id %}">
+                      {% csrf_token %}
+                      <button type="submit" class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-ink transition hover:bg-white/10 focus-visible:ring-4 focus-visible:ring-accent/30 focus-visible:outline-none" aria-label="Restore {{ company.name }}">
+                        {% include "partials/icon.html" with name="restore" class="size-3.5" %}
+                        Restore
+                      </button>
+                    </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="mt-4 rounded-xl border border-dashed border-line px-6 py-8 text-center text-sm text-ink-faint">No deleted companies.</p>
+  {% endif %}
+</section>
+
+<section class="mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" aria-labelledby="deleted-jobs-title">
+  <div class="flex items-baseline justify-between gap-2">
+    <h2 id="deleted-jobs-title" class="text-base font-semibold text-ink">Jobs</h2>
+    {% if job_count %}<p class="text-xs text-ink-faint">{{ job_count }} deleted{% if job_count > limit %}, showing the {{ limit }} most recent{% endif %}</p>{% endif %}
+  </div>
+  {% if jobs %}
+    <div class="mt-4 overflow-x-auto">
+      <table class="w-full text-left text-sm">
+        <thead>
+          <tr class="border-b border-line text-xs text-ink-faint">
+            <th scope="col" class="py-2.5 pr-4 font-medium">Job title</th>
+            <th scope="col" class="py-2.5 pr-4 font-medium max-sm:hidden">Company</th>
+            <th scope="col" class="py-2.5 pr-4 text-right font-medium max-sm:hidden">Deleted</th>
+            <th scope="col" class="py-2.5 text-right font-medium"><span class="sr-only">Restore</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for job in jobs %}
+            <tr class="border-b border-line/60 last:border-0">
+              <td class="py-3 pr-4">
+                <span class="font-medium text-ink">{{ job.title }}</span>
+                <p class="mt-0.5 text-xs text-ink-faint sm:hidden">{{ job.company.name }}</p>
+              </td>
+              <td class="py-3 pr-4 text-ink-muted max-sm:hidden">
+                {{ job.company.name }}
+                {% if job.company.is_deleted %}<span class="ml-1.5 rounded-full border border-line px-2 py-0.5 text-xs text-ink-faint">also deleted</span>{% endif %}
+              </td>
+              <td class="py-3 pr-4 text-right whitespace-nowrap text-ink-faint tabular-nums max-sm:hidden">
+                {% if job.deleted_at %}<time datetime="{{ job.deleted_at|date:'c' }}">{{ job.deleted_at|date:"M j, Y" }}</time>{% else %}—{% endif %}
+              </td>
+              <td class="py-3">
+                <div class="flex justify-end">
+                  <form method="post" action="{% url 'tracker:job_restore' job.id %}">
+                      {% csrf_token %}
+                      <button type="submit" class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-ink transition hover:bg-white/10 focus-visible:ring-4 focus-visible:ring-accent/30 focus-visible:outline-none" aria-label="Restore {{ job.title }}">
+                        {% include "partials/icon.html" with name="restore" class="size-3.5" %}
+                        Restore
+                      </button>
+                    </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="mt-4 rounded-xl border border-dashed border-line px-6 py-8 text-center text-sm text-ink-faint">No deleted jobs.</p>
+  {% endif %}
+</section>
+
+<section class="mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" aria-labelledby="deleted-resume-title">
+  <div class="flex items-baseline justify-between gap-2">
+    <h2 id="deleted-resume-title" class="text-base font-semibold text-ink">Resume entries</h2>
+    {% if resume_entry_count %}<p class="text-xs text-ink-faint">{{ resume_entry_count }} deleted{% if resume_entry_count > limit %}, showing the {{ limit }} most recent{% endif %}</p>{% endif %}
+  </div>
+  {% if resume_entries %}
+    <div class="mt-4 overflow-x-auto">
+      <table class="w-full text-left text-sm">
+        <thead>
+          <tr class="border-b border-line text-xs text-ink-faint">
+            <th scope="col" class="py-2.5 pr-4 font-medium">Entry</th>
+            <th scope="col" class="py-2.5 pr-4 font-medium max-sm:hidden">Section</th>
+            <th scope="col" class="py-2.5 pr-4 text-right font-medium max-sm:hidden">Deleted</th>
+            <th scope="col" class="py-2.5 text-right font-medium"><span class="sr-only">Restore</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in resume_entries %}
+            <tr class="border-b border-line/60 last:border-0">
+              <td class="py-3 pr-4">
+                <span class="font-medium text-ink">{{ item.name }}</span>
+                <p class="mt-0.5 text-xs text-ink-faint sm:hidden">{{ item.section.heading }}</p>
+              </td>
+              <td class="py-3 pr-4 text-ink-muted max-sm:hidden">{{ item.section.heading }}</td>
+              <td class="py-3 pr-4 text-right whitespace-nowrap text-ink-faint tabular-nums max-sm:hidden">
+                {% if item.entry.deleted_at %}<time datetime="{{ item.entry.deleted_at|date:'c' }}">{{ item.entry.deleted_at|date:"M j, Y" }}</time>{% else %}—{% endif %}
+              </td>
+              <td class="py-3">
+                <div class="flex justify-end">
+                  <form method="post" action="{% url 'tracker:resume_entry_restore' item.section.slug item.entry.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-ink transition hover:bg-white/10 focus-visible:ring-4 focus-visible:ring-accent/30 focus-visible:outline-none" aria-label="Restore {{ item.name }}">
+                      {% include "partials/icon.html" with name="restore" class="size-3.5" %}
+                      Restore
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="mt-4 rounded-xl border border-dashed border-line px-6 py-8 text-center text-sm text-ink-faint">No deleted resume entries.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,90 @@
+{% load tracker_status %}
+{% comment %}
+  Filterable, sortable list of jobs. Filters and sort are GET parameters
+  (see tracker/jobs.py), so the view survives reloads and can be bookmarked.
+  Context: page (a Paginator page of jobs), page_numbers, page_sizes, filters,
+  columns, status_options, companies, has_jobs.
+{% endcomment %}
+<section id="jobs" class="mt-6 scroll-mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" aria-labelledby="jobs-title">
+  <div class="flex flex-wrap items-baseline justify-between gap-2">
+    <h2 id="jobs-title" class="text-base font-semibold text-ink">Your jobs</h2>
+    {% if has_jobs %}
+      <p class="text-xs text-ink-faint" aria-live="polite">{{ page.paginator.count }} job{{ page.paginator.count|pluralize }}</p>
+    {% endif %}
+  </div>
+
+  {% if not has_jobs %}
+    <div class="mt-5 grid place-items-center rounded-xl border border-dashed border-line px-6 py-14 text-center">
+      <p class="text-sm font-medium text-ink">No jobs yet</p>
+      <p class="mt-1 text-xs text-ink-faint">Add the jobs you're interested in to track your applications.</p>
+      <a href="{% url 'tracker:job_add' %}" class="mt-4 inline-flex items-center gap-2 rounded-xl bg-linear-to-r from-accent to-accent-2 px-3.5 py-2 text-sm font-semibold text-canvas transition hover:brightness-110 focus-visible:ring-4 focus-visible:ring-accent/30 focus-visible:outline-none">
+        {% include "partials/icon.html" with name="plus" %}
+        Add your first job
+      </a>
+    </div>
+  {% else %}
+    {% include "tracker/partials/job_filters.html" %}
+
+    {# Table #}
+    <div class="mt-4 overflow-x-auto">
+      <table class="w-full text-left text-sm">
+        <caption class="sr-only">Jobs, sorted by {% for column in columns %}{% if column.direction %}{{ column.heading|lower }}, {{ column.direction }}{% endif %}{% endfor %}</caption>
+        <thead>
+          <tr class="border-b border-line">
+            {% for column in columns %}
+              <th scope="col" class="py-2.5 pr-4 text-xs font-medium whitespace-nowrap {% if column.name == 'company' %}max-sm:hidden{% elif column.name == 'updated' %}text-right max-md:hidden{% endif %}"
+                  {% if column.direction %}aria-sort="{{ column.direction }}"{% endif %}>
+                <a href="{% querystring sort=column.next_sort page=None %}#jobs"
+                   class="group inline-flex items-center gap-1.5 transition hover:text-ink {% if column.direction %}text-ink{% else %}text-ink-faint{% endif %}">
+                  {{ column.heading }}
+                  {% if column.direction == "ascending" %}
+                    {% include "partials/icon.html" with name="arrow-up" class="size-3" %}
+                  {% elif column.direction == "descending" %}
+                    {% include "partials/icon.html" with name="arrow-down" class="size-3" %}
+                  {% else %}
+                    {% include "partials/icon.html" with name="arrow-up-down" class="size-3 opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100" %}
+                  {% endif %}
+                </a>
+              </th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for job in page %}
+            <tr class="border-b border-line/60 transition last:border-0 hover:bg-white/2">
+              <td class="py-3 pr-4">
+                <a href="{% url 'tracker:job_detail' job.id %}" class="font-medium text-ink underline-offset-2 hover:underline focus-visible:underline">{{ job.title }}</a>
+                <p class="mt-0.5 text-xs text-ink-faint sm:hidden">{{ job.company.name }}</p>
+              </td>
+              <td class="py-3 pr-4 text-ink-muted max-sm:hidden">{{ job.company.name }}</td>
+              <td class="py-3 pr-4">
+                {% with slot=job.latest_status|status_slot %}
+                  <span class="inline-flex items-center gap-2 text-ink-muted whitespace-nowrap"{% if slot %} style="--series: var(--chart-{{ slot }})"{% endif %}>
+                    {% if slot %}
+                      <span class="size-2 rounded-full bg-(--series)" aria-hidden="true"></span>
+                    {% else %}
+                      <span class="size-2 rounded-full border border-ink-faint" aria-hidden="true"></span>
+                    {% endif %}
+                    {{ job.latest_status|status_label }}
+                  </span>
+                {% endwith %}
+              </td>
+              <td class="py-3 pr-4 text-right text-ink-faint whitespace-nowrap tabular-nums max-md:hidden">
+                <time datetime="{{ job.last_updated|date:'c' }}">{{ job.last_updated|date:"M j, Y" }}</time>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="{{ columns|length }}" class="py-12 text-center">
+                <p class="text-sm font-medium text-ink">No jobs match these filters</p>
+                <a href="{% url 'tracker:jobs' %}#jobs" class="mt-1 inline-block text-xs text-ink-muted underline underline-offset-2 hover:text-ink">Reset filters</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% include "partials/pagination.html" %}
+  {% endif %}
+</section>

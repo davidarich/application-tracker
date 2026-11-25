@@ -1,0 +1,117 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}Companies · Job Tracker{% endblock %}
+{% block breadcrumb %}Companies{% endblock %}
+
+{% block content %}
+<div class="flex flex-wrap items-center justify-between gap-3">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight">Companies</h1>
+    <p class="mt-1 text-sm text-ink-muted">Companies you're applying to and recruiters you're working with.</p>
+  </div>
+  <a href="{% url 'tracker:company_add' %}" class="inline-flex items-center gap-2 rounded-xl border border-line bg-white/5 px-3.5 py-2 text-sm font-medium text-ink transition hover:bg-white/10 focus-visible:ring-4 focus-visible:ring-accent/30 focus-visible:outline-none">
+    {% include "partials/icon.html" with name="plus" %}
+    Add company
+  </a>
+</div>
+
+<section id="companies" class="mt-6 scroll-mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" aria-labelledby="companies-title">
+  <div class="flex items-baseline justify-between gap-2">
+    <h2 id="companies-title" class="text-base font-semibold text-ink">Your companies</h2>
+    {% if total_companies %}
+      <p class="text-xs text-ink-faint" aria-live="polite">
+        {% if query %}{{ page.paginator.count }} of {% endif %}{{ total_companies }} compan{{ total_companies|pluralize:"y,ies" }}
+      </p>
+    {% endif %}
+  </div>
+
+  {% if not total_companies %}
+    <div class="mt-5 grid place-items-center rounded-xl border border-dashed border-line px-6 py-14 text-center">
+      <span class="grid size-12 place-items-center rounded-2xl border border-line bg-raised text-ink-muted">
+        {% include "partials/icon.html" with name="building" class="size-5" %}
+      </span>
+      <p class="mt-4 text-sm font-medium text-ink">No companies yet</p>
+      <p class="mt-1 text-xs text-ink-faint">Add the companies you're applying to, so you can track their jobs.</p>
+      <a href="{% url 'tracker:company_add' %}" class="mt-4 inline-flex items-center gap-2 rounded-xl bg-linear-to-r from-accent to-accent-2 px-3.5 py-2 text-sm font-semibold text-canvas transition hover:brightness-110 focus-visible:ring-4 focus-visible:ring-accent/30 focus-visible:outline-none">
+        {% include "partials/icon.html" with name="plus" %}
+        Add your first company
+      </a>
+    </div>
+  {% else %}
+    <form method="get" action="{% url 'tracker:companies' %}#companies" class="mt-4 flex flex-wrap items-center gap-3" role="search" aria-label="Search companies">
+      <input type="hidden" name="per_page" value="{{ per_page }}">
+      <div class="min-w-48 flex-1 sm:max-w-xs">
+        <label for="company-search" class="sr-only">Search companies</label>
+        <div class="relative">
+          <span class="pointer-events-none absolute inset-y-0 left-3 grid place-items-center text-ink-faint">
+            {% include "partials/icon.html" with name="search" class="size-3.5" %}
+          </span>
+          <input id="company-search" type="search" name="q" value="{{ query }}" placeholder="Search name or website" autocomplete="off"
+                 class="w-full rounded-xl border border-line bg-raised py-2 pr-3 pl-9 text-sm text-ink transition outline-none placeholder:text-ink-faint focus:border-accent/60 focus:ring-4 focus:ring-accent/15">
+        </div>
+      </div>
+      <button type="submit" class="cursor-pointer rounded-xl border border-line bg-white/5 px-3.5 py-2 text-sm font-medium text-ink transition hover:bg-white/10 focus-visible:ring-4 focus-visible:ring-accent/30 focus-visible:outline-none">
+        Search
+      </button>
+      {% if query %}
+        <a href="{% querystring q=None page=None %}#companies" class="px-1 py-2 text-sm text-ink-muted underline-offset-2 transition hover:text-ink hover:underline">Clear</a>
+      {% endif %}
+    </form>
+
+    {% if not page.paginator.count %}
+      <div class="mt-4 rounded-xl border border-dashed border-line px-6 py-12 text-center">
+        <p class="text-sm font-medium text-ink">No companies match &ldquo;{{ query }}&rdquo;</p>
+        <a href="{% querystring q=None page=None %}#companies" class="mt-1 inline-block text-xs text-ink-muted underline underline-offset-2 hover:text-ink">Clear the search</a>
+      </div>
+    {% else %}
+    <div class="mt-4 overflow-x-auto">
+      <table class="w-full text-left text-sm">
+        <thead>
+          <tr class="border-b border-line text-xs text-ink-faint">
+            <th scope="col" class="py-2.5 pr-4 font-medium">Name</th>
+            <th scope="col" class="py-2.5 pr-4 font-medium max-md:hidden">Website</th>
+            <th scope="col" class="py-2.5 pr-4 font-medium max-sm:hidden">Type</th>
+            <th scope="col" class="py-2.5 pr-4 text-right font-medium">Jobs</th>
+            <th scope="col" class="py-2.5 pr-4 text-right font-medium max-sm:hidden">Added</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for company in companies %}
+            <tr class="border-b border-line/60 transition last:border-0 hover:bg-white/2">
+              <td class="py-3 pr-4">
+                <a href="{% url 'tracker:company_detail' company.id %}" class="font-medium text-ink underline-offset-2 hover:underline focus-visible:underline">{{ company.name }}</a>
+                {% if company.is_staffing_agency %}<p class="mt-0.5 text-xs text-ink-faint sm:hidden">Staffing agency</p>{% endif %}
+              </td>
+              <td class="py-3 pr-4 max-md:hidden">
+                {% if company.website %}
+                  <a href="{{ company.website }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-ink-muted transition hover:text-ink">
+                    {{ company.website|cut:"https://"|cut:"http://" }}
+                    {% include "partials/icon.html" with name="external" class="size-3" %}
+                    <span class="sr-only">(opens in a new tab)</span>
+                  </a>
+                {% else %}
+                  <span class="text-ink-faint" aria-label="No website">—</span>
+                {% endif %}
+              </td>
+              <td class="py-3 pr-4 max-sm:hidden">
+                {% if company.is_staffing_agency %}
+                  <span class="rounded-full border border-line bg-white/5 px-2 py-0.5 text-xs text-ink-muted">Staffing agency</span>
+                {% else %}
+                  <span class="text-xs text-ink-faint">Company</span>
+                {% endif %}
+              </td>
+              <td class="py-3 pr-4 text-right text-ink-muted tabular-nums">{{ company.job_count }}</td>
+              <td class="py-3 pr-4 text-right whitespace-nowrap text-ink-faint tabular-nums max-sm:hidden">
+                <time datetime="{{ company.date_added|date:'c' }}">{{ company.date_added|date:"M j, Y" }}</time>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% include "partials/pagination.html" %}
+    {% endif %}
+  {% endif %}
+</section>
+{% endblock %}

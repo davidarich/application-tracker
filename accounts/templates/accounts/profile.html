@@ -1,0 +1,80 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}Profile · Job Tracker{% endblock %}
+{% block breadcrumb %}Profile{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl">
+  <h1 class="text-2xl font-semibold tracking-tight">Profile</h1>
+  <p class="mt-1 text-sm text-ink-muted">Your name and contact details.</p>
+
+  <section class="mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" aria-labelledby="account-title">
+    <h2 id="account-title" class="text-base font-semibold text-ink">Account</h2>
+    <dl class="mt-4">
+      <dt class="text-xs font-medium text-ink-muted">Email</dt>
+      <dd class="mt-1.5 text-sm text-ink">{{ user.email }}</dd>
+      <dd class="mt-1 text-xs text-ink-faint">You log in with this address. Ask an administrator if it needs to change.</dd>
+    </dl>
+  </section>
+
+  <section class="mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" aria-labelledby="photo-title">
+    <h2 id="photo-title" class="text-base font-semibold text-ink">Photo</h2>
+    <div class="mt-4 flex flex-wrap items-center gap-5">
+      {% if user.avatar %}
+        <img src="{% url 'accounts:avatar' %}?v={{ user.avatar.name|slugify }}" alt="Your profile photo" class="size-20 rounded-full border border-line object-cover">
+      {% else %}
+        <span class="grid size-20 place-items-center rounded-full border border-line bg-raised text-2xl font-semibold text-ink uppercase" aria-hidden="true">{{ user.get_short_name|default:user.get_username|first }}</span>
+      {% endif %}
+      <div class="flex flex-wrap items-center gap-3">
+        <form method="post" action="{% url 'accounts:avatar_upload' %}" enctype="multipart/form-data" class="flex flex-wrap items-center gap-3">
+          {% csrf_token %}
+          <label for="id_photo" class="sr-only">Choose a photo</label>
+          <input type="file" name="photo" id="id_photo" accept="image/jpeg,image/png,image/gif,image/webp" required
+                 class="max-w-64 text-sm text-ink-muted file:mr-3 file:cursor-pointer file:rounded-xl file:border file:border-line file:bg-white/5 file:px-3.5 file:py-2 file:text-sm file:font-medium file:text-ink hover:file:bg-white/10">
+          <button type="submit" class="cursor-pointer rounded-xl bg-linear-to-r from-accent to-accent-2 px-3.5 py-2 text-sm font-semibold text-canvas transition hover:brightness-110 focus-visible:ring-4 focus-visible:ring-accent/30 focus-visible:outline-none">
+            Upload
+          </button>
+        </form>
+        {% if user.avatar %}
+          <form method="post" action="{% url 'accounts:avatar_remove' %}">
+            {% csrf_token %}
+            <button type="submit" class="cursor-pointer px-2 py-2 text-sm text-ink-muted underline-offset-2 transition hover:text-ink hover:underline">Remove</button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+    <p class="mt-3 text-xs text-ink-faint">JPEG, PNG, GIF or WebP, up to 5 MB. It's cropped to a square.</p>
+  </section>
+
+  <form method="post" action="{% url 'accounts:profile' %}" class="mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" novalidate>
+    {% csrf_token %}
+    <h2 class="text-base font-semibold text-ink">Personal details</h2>
+
+    {% if form.non_field_errors %}
+      <div class="mt-4 rounded-xl border border-danger/30 bg-danger/10 px-3.5 py-3 text-sm text-rose-200" role="alert">
+        {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="mt-5 grid gap-x-4 gap-y-8 sm:grid-cols-2">
+      {% for field in form %}
+        <div class="form-field">
+          <label for="{{ field.id_for_label }}">
+            {{ field.label }}{% if not field.field.required %} <span class="font-normal text-ink-faint">(optional)</span>{% endif %}
+          </label>
+          {{ field }}
+          {% if field.help_text %}<p class="mt-1.5 text-xs text-ink-faint">{{ field.help_text }}</p>{% endif %}
+          {{ field.errors }}
+        </div>
+      {% endfor %}
+    </div>
+
+    <div class="mt-8 flex items-center gap-3">
+      <button type="submit" class="cursor-pointer rounded-xl bg-linear-to-r from-accent to-accent-2 px-4 py-2.5 text-sm font-semibold text-canvas shadow-lg shadow-accent/20 transition hover:brightness-110 focus-visible:ring-4 focus-visible:ring-accent/30 focus-visible:outline-none">
+        Save changes
+      </button>
+      <a href="{% url 'tracker:dashboard' %}" class="px-2 py-2.5 text-sm text-ink-muted transition hover:text-ink">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

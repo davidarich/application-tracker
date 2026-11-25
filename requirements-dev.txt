@@ -1,0 +1,5 @@
+-r requirements.txt
+
+basedpyright>=1.40
+django-types>=0.24
+ruff>=0.17

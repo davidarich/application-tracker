@@ -1,0 +1,8 @@
+{# A resume list section's heading and Add button. Context: title_id, title, add_url, add_label. #}
+<div class="flex flex-wrap items-center justify-between gap-3">
+  <h2 id="{{ title_id }}" class="text-base font-semibold text-ink">{{ title }}</h2>
+  <a href="{{ add_url }}" class="inline-flex items-center gap-2 rounded-xl border border-line bg-white/5 px-3 py-1.5 text-sm font-medium text-ink transition hover:bg-white/10 focus-visible:ring-4 focus-visible:ring-accent/30 focus-visible:outline-none">
+    {% include "partials/icon.html" with name="plus" %}
+    {{ add_label }}
+  </a>
+</div>

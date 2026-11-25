@@ -1,0 +1,77 @@
+{% extends "layouts/app.html" %}
+{% load static %}
+
+{% block title %}{{ heading }} · Job Tracker{% endblock %}
+{% block breadcrumb %}<a href="{% url 'tracker:jobs' %}" class="text-ink-muted transition hover:text-ink">Jobs</a><span class="mx-2 text-ink-faint" aria-hidden="true">›</span>{% if job_url %}<a href="{{ job_url }}" class="text-ink-muted transition hover:text-ink">{{ job_title }}</a><span class="mx-2 text-ink-faint" aria-hidden="true">›</span>Edit{% else %}Add job{% endif %}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl">
+  <h1 class="text-2xl font-semibold tracking-tight">{{ heading }}</h1>
+  {% if not job_title %}<p class="mt-1 text-sm text-ink-muted">A job you're interested in at one of your companies.</p>{% endif %}
+
+  {% if not has_companies %}
+    <div class="mt-6 grid place-items-center rounded-2xl border border-dashed border-line px-6 py-14 text-center">
+      <span class="grid size-12 place-items-center rounded-2xl border border-line bg-raised text-ink-muted">
+        {% include "partials/icon.html" with name="building" class="size-5" %}
+      </span>
+      <p class="mt-4 text-sm font-medium text-ink">Add a company first</p>
+      <p class="mt-1 text-xs text-ink-faint">Every job belongs to a company, so add the company you're applying to.</p>
+      <a href="{% url 'tracker:company_add' %}" class="mt-4 inline-flex items-center gap-2 rounded-xl bg-linear-to-r from-accent to-accent-2 px-3.5 py-2 text-sm font-semibold text-canvas transition hover:brightness-110 focus-visible:ring-4 focus-visible:ring-accent/30 focus-visible:outline-none">
+        {% include "partials/icon.html" with name="plus" %}
+        Add company
+      </a>
+    </div>
+  {% else %}
+    <form method="post" action="{{ action }}" class="mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" novalidate>
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+        <div class="mb-5 rounded-xl border border-danger/30 bg-danger/10 px-3.5 py-3 text-sm text-rose-200" role="alert">
+          {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+        </div>
+      {% endif %}
+
+      <div class="grid gap-x-4 gap-y-8 sm:grid-cols-2">
+        <div class="sm:col-span-2">{% include "partials/form_field.html" with field=form.company %}</div>
+        <div class="sm:col-span-2">{% include "partials/form_field.html" with field=form.title %}</div>
+        <div class="sm:col-span-2">{% include "partials/form_field.html" with field=form.posting_url %}</div>
+        {% include "partials/form_field.html" with field=form.location_city %}
+        {% include "partials/form_field.html" with field=form.location_state %}
+        {% include "partials/form_field.html" with field=form.workplace_type %}
+        <div class="max-sm:hidden" aria-hidden="true"></div>
+        {% include "partials/form_field.html" with field=form.salary_min %}
+        {% include "partials/form_field.html" with field=form.salary_max %}
+        <div class="sm:col-span-2">{% include "partials/form_field.html" with field=form.description %}</div>
+
+        <div class="sm:col-span-2" data-skill-picker>
+          <label for="{{ form.skills.id_for_label }}" class="mb-1.5 block text-xs font-medium text-ink-muted">Skills <span class="font-normal text-ink-faint">(optional)</span></label>
+          <p class="mb-2 text-xs text-ink-faint">Search for the skills the job asks for and pick one to add it.</p>
+          {{ form.skills }}
+          {% if form.skills.errors %}<div class="form-errors">{{ form.skills.errors }}</div>{% endif %}
+        </div>
+      </div>
+
+      <div class="mt-8 flex items-center gap-3">
+        <button type="submit" class="cursor-pointer rounded-xl bg-linear-to-r from-accent to-accent-2 px-4 py-2.5 text-sm font-semibold text-canvas shadow-lg shadow-accent/20 transition hover:brightness-110 focus-visible:ring-4 focus-visible:ring-accent/30 focus-visible:outline-none">
+          {{ submit_label }}
+        </button>
+        <a href="{% if job_url %}{{ job_url }}{% else %}{% url 'tracker:jobs' %}{% endif %}" class="px-2 py-2.5 text-sm text-ink-muted transition hover:text-ink">Cancel</a>
+        {% if delete_action %}
+          <button type="submit" form="delete-form" class="ml-auto inline-flex cursor-pointer items-center gap-2 rounded-xl border border-danger/40 px-3.5 py-2 text-sm font-medium text-rose-300 transition hover:bg-danger/10 focus-visible:ring-4 focus-visible:ring-danger/30 focus-visible:outline-none">
+            {% include "partials/icon.html" with name="trash" %}
+            Delete job
+          </button>
+        {% endif %}
+      </div>
+    </form>
+
+    {% if delete_action %}
+      {# Submitted by the Delete button in the form's button row (form="delete-form"). #}
+      <form id="delete-form" method="post" action="{{ delete_action }}" data-confirm="Delete {{ job_title }}? Its applications will be hidden too." hidden>
+        {% csrf_token %}
+      </form>
+    {% endif %}
+  {% endif %}
+</div>
+<script src="{% static 'js/skill-picker.js' %}" defer></script>
+{% endblock %}

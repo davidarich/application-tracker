@@ -1,0 +1,49 @@
+{% extends "layouts/app.html" %}
+{% load static %}
+
+{% block title %}Jobs · Job Tracker{% endblock %}
+{% block breadcrumb %}Jobs{% endblock %}
+
+{% block content %}
+<div class="flex flex-wrap items-center justify-between gap-3">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight">Jobs</h1>
+    <p class="mt-1 text-sm text-ink-muted">Jobs you're tracking, and where each application stands.</p>
+  </div>
+  <div class="flex flex-wrap items-center gap-3">
+    {# Table, list or board: the choice is in the URL (?view=list or ?view=kanban). #}
+    <div class="inline-flex rounded-xl border border-line bg-raised p-1" role="group" aria-label="Jobs view">
+      <a href="{% querystring view=None %}" {% if not kanban and not list_view %}aria-current="page"{% endif %}
+         class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm transition {% if not kanban and not list_view %}bg-white/10 text-ink{% else %}text-ink-muted hover:text-ink{% endif %}">
+        {% include "partials/icon.html" with name="table" %}
+        Table
+      </a>
+      <a href="{% querystring view='list' page=None %}" {% if list_view %}aria-current="page"{% endif %}
+         class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm transition {% if list_view %}bg-white/10 text-ink{% else %}text-ink-muted hover:text-ink{% endif %}">
+        {% include "partials/icon.html" with name="list" %}
+        List
+      </a>
+      <a href="{% querystring view='kanban' page=None sort=None per_page=None status=None %}" {% if kanban %}aria-current="page"{% endif %}
+         class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm transition {% if kanban %}bg-white/10 text-ink{% else %}text-ink-muted hover:text-ink{% endif %}">
+        {% include "partials/icon.html" with name="kanban" %}
+        Kanban
+      </a>
+    </div>
+    <a href="{% url 'tracker:job_add' %}" class="inline-flex items-center gap-2 rounded-xl border border-line bg-white/5 px-3.5 py-2 text-sm font-medium text-ink transition hover:bg-white/10 focus-visible:ring-4 focus-visible:ring-accent/30 focus-visible:outline-none">
+      {% include "partials/icon.html" with name="plus" %}
+      Add job
+    </a>
+  </div>
+</div>
+
+{% if kanban %}
+  {% include "tracker/partials/job_kanban.html" %}
+  <script src="{% static 'js/autosubmit.js' %}" defer></script>
+  <script src="{% static 'js/kanban-dnd.js' %}" defer></script>
+{% elif list_view %}
+  {% include "tracker/partials/job_cards.html" %}
+{% else %}
+  {% include "tracker/partials/job_table.html" %}
+{% endif %}
+<script src="{% static 'js/job-filters.js' %}" defer></script>
+{% endblock %}

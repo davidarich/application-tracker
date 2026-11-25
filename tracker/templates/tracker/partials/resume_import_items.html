@@ -1,0 +1,38 @@
+{% comment %}
+  One review section's parsed entries, each with an "Add" checkbox and its
+  editable form. Context: items (ReviewItem list), noun ("position"), empty.
+{% endcomment %}
+{% if items %}
+  <ul class="mt-4 space-y-4">
+    {% for item in items %}
+      <li class="rounded-xl border border-line bg-raised p-4{% if not item.include %} opacity-80{% endif %}">
+        <div class="flex flex-wrap items-center gap-2">
+          <label class="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-ink">
+            <input type="checkbox" name="{{ item.prefix }}-include" {% if item.include %}checked{% endif %} class="size-4 cursor-pointer rounded accent-accent">
+            Add this {{ noun }}
+          </label>
+          {% if item.uncertain %}<span class="rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-xs text-amber-200">Check this</span>{% endif %}
+          {% if item.duplicate %}<span class="rounded-full border border-line px-2 py-0.5 text-xs text-ink-muted">Already on your resume</span>{% endif %}
+        </div>
+        <div class="mt-4 grid gap-x-5 gap-y-5 sm:grid-cols-2">
+          {% for field in item.form %}
+            {% if field.widget_type == 'checkbox' %}
+              <div class="flex items-center gap-3 sm:col-span-2">
+                {{ field }}
+                <label for="{{ field.id_for_label }}" class="cursor-pointer text-sm text-ink">{{ field.label }}</label>
+              </div>
+            {% else %}
+              <div class="form-field{% if field.widget_type == 'textarea' or field.name in item.form.wide_fields %} sm:col-span-2{% endif %}">
+                <label for="{{ field.id_for_label }}">{{ field.label }}{% if not field.field.required %} <span class="font-normal text-ink-faint">(optional)</span>{% endif %}</label>
+                {{ field }}
+                {{ field.errors }}
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p class="mt-4 rounded-xl border border-dashed border-line px-4 py-6 text-center text-sm text-ink-faint">{{ empty }}</p>
+{% endif %}

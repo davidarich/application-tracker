@@ -1,0 +1,6 @@
+# Django generates migrations, so don't lint them.
+extend-exclude = ["**/migrations"]
+
+[lint.per-file-ignores]
+# Django's Meta, ModelAdmin, etc. are configured with class-level lists by design.
+"**/{models,admin}.py" = ["RUF012"]

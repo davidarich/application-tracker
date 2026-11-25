@@ -1,0 +1,68 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}{{ heading }} · Job Tracker{% endblock %}
+{% block breadcrumb %}<a href="{% url 'tracker:resume' %}" class="text-ink-muted transition hover:text-ink">Resume</a><span class="mx-2 text-ink-faint" aria-hidden="true">›</span>{{ entry_name|default:heading }}{% endblock %}
+
+{% block content %}
+{% comment %}
+  Add or edit a work history, education or certification entry
+  (tracker/resume_views.py). Fields are laid out two to a row on wider
+  screens; text areas and the form's wide_fields take the full width.
+{% endcomment %}
+<div class="max-w-2xl">
+  <h1 class="text-2xl font-semibold tracking-tight">{{ heading }}</h1>
+  <p class="mt-1 text-sm text-ink-muted">{{ section.heading }} on your resume.</p>
+
+  <form method="post" action="{{ action }}" class="mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" novalidate>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="mb-5 rounded-xl border border-danger/30 bg-danger/10 px-3.5 py-3 text-sm text-rose-200" role="alert">
+        {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="grid gap-x-5 gap-y-8 sm:grid-cols-2">
+      {% for field in form %}
+        {% if field.widget_type == 'checkbox' %}
+          <div class="flex items-start gap-3 sm:col-span-2">
+            {{ field }}
+            <div>
+              <label for="{{ field.id_for_label }}" class="cursor-pointer text-sm font-medium text-ink">{{ field.label }}</label>
+              {% if field.help_text %}<p class="mt-0.5 text-xs text-ink-faint">{{ field.help_text }}</p>{% endif %}
+              {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+            </div>
+          </div>
+        {% else %}
+          <div class="form-field{% if field.widget_type == 'textarea' or field.name in form.wide_fields %} sm:col-span-2{% endif %}">
+            <label for="{{ field.id_for_label }}">{{ field.label }}{% if not field.field.required %} <span class="font-normal text-ink-faint">(optional)</span>{% endif %}</label>
+            {{ field }}
+            {% if field.help_text %}<p class="mt-1.5 text-xs text-ink-faint">{{ field.help_text }}</p>{% endif %}
+            {{ field.errors }}
+          </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    <div class="mt-8 flex items-center gap-3">
+      <button type="submit" class="cursor-pointer rounded-xl bg-linear-to-r from-accent to-accent-2 px-4 py-2.5 text-sm font-semibold text-canvas shadow-lg shadow-accent/20 transition hover:brightness-110 focus-visible:ring-4 focus-visible:ring-accent/30 focus-visible:outline-none">
+        {{ submit_label }}
+      </button>
+      <a href="{{ section.url }}" class="px-2 py-2.5 text-sm text-ink-muted transition hover:text-ink">Cancel</a>
+      {% if delete_action %}
+        <button type="submit" form="delete-form" class="ml-auto inline-flex cursor-pointer items-center gap-2 rounded-xl border border-danger/40 px-3.5 py-2 text-sm font-medium text-rose-300 transition hover:bg-danger/10 focus-visible:ring-4 focus-visible:ring-danger/30 focus-visible:outline-none">
+          {% include "partials/icon.html" with name="trash" %}
+          Delete
+        </button>
+      {% endif %}
+    </div>
+  </form>
+
+  {% if delete_action %}
+    {# Submitted by the Delete button in the form's button row (form="delete-form"). #}
+    <form id="delete-form" method="post" action="{{ delete_action }}" data-confirm="Delete {{ entry_name }} from your resume?" hidden>
+      {% csrf_token %}
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

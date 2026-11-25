@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Log in · Application Tracker{% endblock %}
+
+{% block body %}
+<div class="relative isolate grid min-h-full place-items-center overflow-hidden px-4 py-12">
+  {# Soft accent glow behind the card #}
+  <div class="pointer-events-none absolute -top-40 left-1/2 -z-10 size-144 -translate-x-1/2 rounded-full bg-accent/10 blur-3xl" aria-hidden="true"></div>
+
+  <div class="w-full max-w-sm">
+    <p class="mb-8 text-center text-3xl font-bold tracking-[0.2em] text-ink">JOB TRACKER</p>
+
+    <div class="rounded-3xl border border-line bg-panel/80 p-8 shadow-2xl shadow-black/50 backdrop-blur">
+      <h1 class="text-2xl font-semibold tracking-tight">Log in</h1>
+      <p class="mt-1 text-sm text-ink-muted">Welcome back. Enter your details to continue.</p>
+
+      <form method="post" action="{% url 'tracker:login' %}" class="mt-8 space-y-5" novalidate>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+          <div class="rounded-xl border border-danger/30 bg-danger/10 px-3.5 py-3 text-sm text-rose-200" role="alert">
+            {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+          </div>
+        {% endif %}
+
+        <div class="form-field">
+          <label for="{{ form.username.id_for_label }}">Email</label>
+          {{ form.username }}
+          {{ form.username.errors }}
+        </div>
+
+        <div class="form-field">
+          <label for="{{ form.password.id_for_label }}">Password</label>
+          {{ form.password }}
+          {{ form.password.errors }}
+        </div>
+
+        <input type="hidden" name="next" value="{{ next }}">
+
+        <button type="submit" class="w-full cursor-pointer rounded-xl bg-linear-to-r from-accent to-accent-2 px-4 py-2.5 text-sm font-semibold text-canvas shadow-lg shadow-accent/20 transition hover:brightness-110 focus-visible:ring-4 focus-visible:ring-accent/30 focus-visible:outline-none">
+          Log in
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
