@@ -33,6 +33,7 @@ from .jobs import (
     sort_columns,
     undo_status_move,
 )
+from .matching import best_skill_matches, resume_skill_ids
 from .models import Application, Company, Contact, File, Job, Skill
 from .ownership import (
     active_skills,
@@ -55,10 +56,16 @@ from .undo import UNDO_SESSION_KEY, offer_undo
 def dashboard(request: HttpRequest) -> HttpResponse:
     user = request_user(request)
     chart = build_status_chart(status_counts(user))
+    resume_skills = resume_skill_ids(user)
     return render(
         request,
         "tracker/dashboard.html",
-        {"chart": chart, "chart_data": chart.to_json()},
+        {
+            "chart": chart,
+            "chart_data": chart.to_json(),
+            "skill_matches": best_skill_matches(user, resume_skills),
+            "has_resume_skills": bool(resume_skills),
+        },
     )
 
 

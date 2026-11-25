@@ -1,0 +1,35 @@
+{% comment %}
+  The jobs the user hasn't applied to that best match their resume skills
+  (tracker/matching.py). Context: skill_matches (SkillMatch list),
+  has_resume_skills.
+{% endcomment %}
+<section id="skill-matches" class="mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" aria-labelledby="skill-matches-title">
+  <h2 id="skill-matches-title" class="text-base font-semibold text-ink">Best skill matches</h2>
+  <p class="mt-0.5 text-xs text-ink-faint">Jobs you haven't applied to yet, by how many of their skills are on your resume.</p>
+  {% if skill_matches %}
+    <ol class="mt-4 divide-y divide-line">
+      {% for match in skill_matches %}
+        <li class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-3 first:pt-0 last:pb-0">
+          <div class="min-w-0 flex-1">
+            <a href="{% url 'tracker:job_detail' match.job.id %}" class="text-sm font-medium text-ink underline-offset-2 hover:underline focus-visible:underline">{{ match.job.title }}</a>
+            <p class="mt-0.5 text-xs text-ink-faint">
+              {{ match.job.company.name }} · {{ match.matched|length }} of {{ match.total }} skills{% if match.missing %} · Missing {{ match.missing|join:", " }}{% endif %}
+            </p>
+          </div>
+          <div class="flex w-44 items-center gap-3">
+            <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10" aria-hidden="true">
+              <div class="h-full rounded-full bg-accent" style="width: {{ match.percent }}%"></div>
+            </div>
+            <span class="w-11 text-right text-sm font-semibold text-ink tabular-nums">{{ match.percent }}%</span>
+          </div>
+        </li>
+      {% endfor %}
+    </ol>
+  {% elif not has_resume_skills %}
+    <p class="mt-4 rounded-xl border border-dashed border-line px-4 py-6 text-center text-sm text-ink-faint">
+      <a href="{% url 'tracker:resume' %}#skills" class="text-ink-muted underline underline-offset-2 hover:text-ink">Add skills to your resume</a> to see which jobs match them.
+    </p>
+  {% else %}
+    <p class="mt-4 rounded-xl border border-dashed border-line px-4 py-6 text-center text-sm text-ink-faint">None of the jobs you haven't applied to share skills with your resume.</p>
+  {% endif %}
+</section>
