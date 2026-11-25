@@ -133,3 +133,78 @@ class User(AbstractBaseUser, PermissionsMixin):
         middle = self.middle_name.strip()
         middle_initial = f"{middle[0].upper()}." if middle else ""
         return join_names(self.get_short_name(), middle_initial, self.last_name)
+
+
+class ApiGrant(models.Model):
+    """A user's permission for one program (e.g. a browser extension) to use
+    the JSON API, created on the API tokens page.
+
+    It's an OAuth 2.0 refresh token grant: the program is given a refresh
+    token, which it swaps at the token endpoint for a short-lived access token
+    (sent with every API request) and a new refresh token. Revoking the grant
+    ends all of its tokens. See accounts/api_tokens.py.
+    """
+
+    id: models.UUIDField[uuid.UUID] = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, editable=False
+    )
+    user: models.ForeignKey[User] = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="api_grants"
+    )
+    name: models.CharField[str] = models.CharField(
+        max_length=100, help_text="What uses it, e.g. Browser extension."
+    )
+    created_at: models.DateTimeField[datetime] = models.DateTimeField(auto_now_add=True)
+    last_used_at: models.DateTimeField[datetime | None] = models.DateTimeField(
+        null=True, blank=True
+    )
+    # A revoked grant no longer works (its tokens are deleted); the row is
+    # kept so the admin shows its history.
+    revoked_at: models.DateTimeField[datetime | None] = models.DateTimeField(
+        null=True, blank=True
+    )
+
+    class Meta:
+        ordering: ClassVar[list[str]] = ["-created_at"]
+        verbose_name: ClassVar[str] = "API grant"
+
+    @override
+    def __str__(self) -> str:
+        return self.name
+
+
+class ApiToken(models.Model):
+    """An access or refresh token of an ApiGrant.
+
+    Only a SHA-256 hash of the token is stored; the token itself is given out
+    once. `prefix`, its first characters, finds the row.
+    """
+
+    class Kind(models.TextChoices):
+        ACCESS = "access"  # sent with API requests; expires after minutes
+        REFRESH = "refresh"  # swapped for new tokens; each works once
+
+    id: models.UUIDField[uuid.UUID] = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, editable=False
+    )
+    grant: models.ForeignKey[ApiGrant] = models.ForeignKey(
+        ApiGrant, on_delete=models.CASCADE, related_name="tokens"
+    )
+    kind: models.CharField[str] = models.CharField(max_length=10, choices=Kind.choices)
+    prefix: models.CharField[str] = models.CharField(max_length=12, unique=True)
+    key_hash: models.CharField[str] = models.CharField(max_length=64)
+    created_at: models.DateTimeField[datetime] = models.DateTimeField(auto_now_add=True)
+    expires_at: models.DateTimeField[datetime] = models.DateTimeField(db_index=True)
+    # Refresh tokens: when it was swapped. A used one sent again means it may
+    # have been copied, so the whole grant is revoked.
+    used_at: models.DateTimeField[datetime | None] = models.DateTimeField(
+        null=True, blank=True
+    )
+
+    class Meta:
+        ordering: ClassVar[list[str]] = ["-created_at"]
+        verbose_name: ClassVar[str] = "API token"
+
+    @override
+    def __str__(self) -> str:
+        return f"{ApiToken.Kind(self.kind).label} token {self.prefix}…"

@@ -14,8 +14,30 @@ from django.utils import timezone
 
 from accounts.models import User
 
+from .hiring_systems import HiringSystem, detect_hiring_system
+
 # The user model's app label and name, for foreign keys (settings are untyped).
 USER_MODEL = cast(str, settings.AUTH_USER_MODEL)
+
+
+class CreationSource(models.TextChoices):
+    """How a record was created, for records the JSON API can create too."""
+
+    MANUAL = "manual", "Manual"  # by the user in the app (or the admin)
+    API = "api", "API"  # through the JSON API (api/)
+
+
+def creation_source_field() -> models.CharField[str]:
+    """The creation_source field. It's set by the app, never from user input:
+    not editable, so model forms leave it out; forms keep the Manual default,
+    and the API sets API when it creates a record."""
+    return models.CharField(
+        max_length=10,
+        choices=CreationSource.choices,
+        default=CreationSource.MANUAL,
+        editable=False,
+        help_text="How the record was created. Set by the app, not by users.",
+    )
 
 
 class Company(models.Model):
@@ -42,6 +64,7 @@ class Company(models.Model):
         null=True, blank=True
     )
     date_added: models.DateTimeField[datetime] = models.DateTimeField(auto_now_add=True)
+    creation_source: models.CharField[str] = creation_source_field()
 
     class Meta:
         ordering: ClassVar[list[str]] = ["name"]
@@ -106,6 +129,7 @@ class Skill(models.Model):
     deleted_at: models.DateTimeField[datetime | None] = models.DateTimeField(
         null=True, blank=True
     )
+    creation_source: models.CharField[str] = creation_source_field()
 
     class Meta:
         ordering: ClassVar[list[str]] = ["name"]
@@ -173,6 +197,7 @@ class Job(models.Model):
         null=True, blank=True
     )
     date_added: models.DateTimeField[datetime] = models.DateTimeField(auto_now_add=True)
+    creation_source: models.CharField[str] = creation_source_field()
 
     class Meta:
         ordering: ClassVar[list[str]] = ["-date_added"]
@@ -192,6 +217,12 @@ class Job(models.Model):
     @override
     def __str__(self) -> str:
         return f"{self.title} at {self.company}"
+
+    @property
+    def hiring_system(self) -> HiringSystem | None:
+        """The hiring system the posting link belongs to, if it's recognised
+        (tracker/hiring_systems.py)."""
+        return detect_hiring_system(self.posting_url) if self.posting_url else None
 
     @property
     def location(self) -> str:

@@ -8,6 +8,9 @@ env
 __pycache__
 *.py[cod]
 db.sqlite3
+db.sqlite3-wal
+db.sqlite3-shm
+compose.yaml
 staticfiles
 data
 .env

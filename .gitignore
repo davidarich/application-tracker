@@ -9,6 +9,9 @@ env/
 
 # Django
 db.sqlite3
+# SQLite's write-ahead log files (WAL mode, see settings.py)
+db.sqlite3-wal
+db.sqlite3-shm
 *.log
 /staticfiles/
 /data/

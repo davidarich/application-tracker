@@ -1,6 +1,6 @@
 """Forms for users managing their own tracker data."""
 
-from typing import ClassVar, cast, final
+from typing import ClassVar, cast, final, override
 
 from django import forms
 from django.core.exceptions import ValidationError
@@ -21,6 +21,17 @@ from .models import (
     WorkExperience,
 )
 from .ownership import active_skills, companies_for
+from .posting_urls import clean_posting_url
+
+
+class PostingURLField(forms.URLField):
+    """A job posting link, saved without tracking parameters
+    (tracker/posting_urls.py). It's cleaned before the length is checked."""
+
+    @override
+    def to_python(self, value: object) -> str:
+        url = cast(str, super().to_python(value))
+        return clean_posting_url(url) if url else url
 
 
 @final
@@ -51,6 +62,26 @@ class CompanyForm(forms.ModelForm):
             ),
             "mission_statement": forms.Textarea(attrs={"rows": 6, "class": "resize-y"}),
         }
+
+
+def save_company_form(form: CompanyForm, user: User) -> bool:
+    """Validate and save a bound company form; return whether it was saved.
+
+    Duplicate names are checked here because the owner isn't a form field, so
+    the model form's validation skips the per-user unique name constraint. The
+    check runs whenever the name itself is valid, so all errors show at once,
+    and ignores the company being edited.
+    """
+    is_valid = form.is_valid()
+    name = cast(str, form.cleaned_data.get("name", ""))
+    company = cast(Company, form.instance)
+    duplicates = companies_for(user).filter(name__iexact=name).exclude(id=company.id)
+    if name and duplicates.exists():
+        form.add_error("name", "You already have a company with this name.")
+        is_valid = False
+    if is_valid:
+        form.save()
+    return is_valid
 
 
 @final
@@ -94,6 +125,9 @@ class JobForm(forms.ModelForm):
             "description",
             "skills",
         ]
+        field_classes: ClassVar[dict[str, type[forms.Field]]] = {
+            "posting_url": PostingURLField,
+        }
         labels: ClassVar[dict[str, str]] = {
             "title": "Job title",
             "posting_url": "Job posting",

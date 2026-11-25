@@ -19,7 +19,13 @@ from accounts.http import request_user, require_staff
 from accounts.models import User
 
 from .charts import build_status_chart, status_counts
-from .forms import CompanyForm, ContactForm, SkillForm, make_job_form
+from .forms import (
+    CompanyForm,
+    ContactForm,
+    SkillForm,
+    make_job_form,
+    save_company_form,
+)
 from .jobs import (
     FINISHED_STATUSES,
     STATUS_ALL,
@@ -34,7 +40,15 @@ from .jobs import (
     undo_status_move,
 )
 from .matching import best_skill_matches, resume_skill_ids
-from .models import Application, Company, Contact, File, Job, Skill
+from .models import (
+    Application,
+    Company,
+    Contact,
+    CreationSource,
+    File,
+    Job,
+    Skill,
+)
 from .ownership import (
     active_skills,
     companies_for,
@@ -387,26 +401,6 @@ def company_edit(request: HttpRequest, pk: uuid.UUID) -> HttpResponse:
     )
 
 
-def save_company_form(form: CompanyForm, user: User) -> bool:
-    """Validate and save a bound company form; return whether it was saved.
-
-    Duplicate names are checked here because the owner isn't a form field, so
-    the model form's validation skips the per-user unique name constraint. The
-    check runs whenever the name itself is valid, so all errors show at once,
-    and ignores the company being edited.
-    """
-    is_valid = form.is_valid()
-    name = cast(str, form.cleaned_data.get("name", ""))
-    company = cast(Company, form.instance)
-    duplicates = companies_for(user).filter(name__iexact=name).exclude(id=company.id)
-    if name and duplicates.exists():
-        form.add_error("name", "You already have a company with this name.")
-        is_valid = False
-    if is_valid:
-        form.save()
-    return is_valid
-
-
 @login_required
 def skills(request: HttpRequest) -> HttpResponse:
     """The shared skills (staff only). The q parameter searches names and descriptions."""
@@ -473,6 +467,7 @@ def skill_edit(request: HttpRequest, pk: uuid.UUID) -> HttpResponse:
         {
             "form": form,
             "skill_name": original_name,
+            "creation_source": CreationSource(skill.creation_source).label,
             "heading": f"Edit {original_name}",
             "submit_label": "Save changes",
             "action": reverse("tracker:skill_edit", args=[skill.id]),

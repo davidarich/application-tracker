@@ -79,6 +79,13 @@
           <span class="sr-only sm:not-sr-only">Profile</span>
           {% if url_name == "profile" %}<span class="absolute right-3 hidden h-4 w-0.5 rounded-full bg-ink lg:block"></span>{% endif %}
         </a>
+        <a href="{% url 'accounts:api_tokens' %}"
+           {% if url_name == "api_tokens" %}aria-current="page"{% endif %}
+           class="relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition {% if url_name == 'api_tokens' %}bg-linear-to-r from-white/12 to-white/3 text-ink ring-1 ring-white/6{% else %}text-ink-muted hover:bg-white/5 hover:text-ink{% endif %}">
+          {% include "partials/icon.html" with name="key" %}
+          <span class="sr-only sm:not-sr-only">API tokens</span>
+          {% if url_name == "api_tokens" %}<span class="absolute right-3 hidden h-4 w-0.5 rounded-full bg-ink lg:block"></span>{% endif %}
+        </a>
         <a href="{% url 'tracker:recently_deleted' %}"
            {% if url_name == "recently_deleted" %}aria-current="page"{% endif %}
            class="relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition {% if url_name == 'recently_deleted' %}bg-linear-to-r from-white/12 to-white/3 text-ink ring-1 ring-white/6{% else %}text-ink-muted hover:bg-white/5 hover:text-ink{% endif %}">

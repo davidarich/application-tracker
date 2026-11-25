@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 
 import django_stubs_ext
+from django.core.exceptions import ImproperlyConfigured
 
 # Let Django classes such as ModelAdmin take type arguments at runtime
 # (e.g. ModelAdmin[Company]), as the type stubs expect.
@@ -37,21 +38,42 @@ ALLOWED_HOSTS = [
 ]
 
 
+# What this process serves:
+#   web  the site, with the JSON API at /api/v1/ too (the default)
+#   api  only the JSON API (api/urls.py), e.g. in a container of its own; no
+#        pages, admin, sessions or CSRF, since API requests use bearer tokens
+ROLE = os.environ.get("DJANGO_ROLE", "web")
+if ROLE not in {"web", "api"}:
+    raise ImproperlyConfigured(f'DJANGO_ROLE must be "web" or "api", not "{ROLE}".')
+
+
 # Application definition
 
-INSTALLED_APPS = [
-    "django.contrib.admin",
+API_APPS = [
     "django.contrib.auth",
     "django.contrib.contenttypes",
-    "django.contrib.sessions",
-    "django.contrib.messages",
+    # Serves the API docs' own scripts and styles (no CDN).
     "django.contrib.staticfiles",
-    "django_tailwind_cli",
+    "ninja",
     "accounts",
     "tracker",
+    "api",
 ]
+WEB_APPS = [
+    "django.contrib.admin",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django_tailwind_cli",
+    *API_APPS,
+]
+INSTALLED_APPS = WEB_APPS if ROLE == "web" else API_APPS
 
-MIDDLEWARE = [
+API_MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+    "django.middleware.common.CommonMiddleware",
+]
+WEB_MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -61,8 +83,9 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+MIDDLEWARE = WEB_MIDDLEWARE if ROLE == "web" else API_MIDDLEWARE
 
-ROOT_URLCONF = "app_tracker.urls"
+ROOT_URLCONF = "app_tracker.urls" if ROLE == "web" else "api.urls"
 
 TEMPLATES: list[dict[str, object]] = [
     {
@@ -89,6 +112,15 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": os.environ.get("DJANGO_DB_PATH", BASE_DIR / "db.sqlite3"),
+        # The web and API processes can share the file (on one machine, not
+        # a network drive): WAL lets one read while the other writes, and
+        # IMMEDIATE takes the write lock when a transaction starts, so two
+        # writers wait their turn (up to `timeout` seconds) instead of failing.
+        "OPTIONS": {
+            "init_command": "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;",
+            "transaction_mode": "IMMEDIATE",
+            "timeout": 20,
+        },
     }
 }
 
@@ -116,6 +148,13 @@ LOGIN_REDIRECT_URL = "tracker:dashboard"
 LOGOUT_REDIRECT_URL = "tracker:login"
 
 
+# Error reports (emails to ADMINS, error trackers) leave out API tokens, as
+# well as the passwords and keys Django already hides.
+DEFAULT_EXCEPTION_REPORTER_FILTER = (
+    "accounts.error_reports.TokenSafeExceptionReporterFilter"
+)
+
+
 # Internationalization
 # https://docs.djangoproject.com/en/stable/topics/i18n/
 
@@ -133,7 +172,8 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_DIRS = [BASE_DIR / "assets"]
+# The site's own assets; the API serves only the docs' files from apps.
+STATICFILES_DIRS = [BASE_DIR / "assets"] if ROLE == "web" else []
 
 # Tailwind CSS (django-tailwind-cli)
 # https://django-tailwind-cli.rtfd.io/

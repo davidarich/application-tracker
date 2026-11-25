@@ -1,3 +1,4 @@
+import uuid
 from typing import cast
 
 from django.contrib import messages
@@ -6,10 +7,16 @@ from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.http import FileResponse, Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
+from django.utils.cache import add_never_cache_headers
 from django.views.decorators.http import require_POST
 
-from .forms import AvatarForm, ProfileForm
+from .api_tokens import active_grants_for, issue_grant, revoke_grant
+from .forms import ApiTokenForm, AvatarForm, ProfileForm
 from .http import request_user
+
+# Session key holding a just-created refresh token until the API tokens page
+# shows it (once: it's removed as it's shown, and only its hash is stored).
+NEW_TOKEN_SESSION_KEY = "new_api_token"
 
 
 @login_required
@@ -26,6 +33,56 @@ def profile(request: HttpRequest) -> HttpResponse:
     else:
         form = ProfileForm(instance=user)
     return render(request, "accounts/profile.html", {"form": form})
+
+
+@login_required
+def api_tokens(request: HttpRequest) -> HttpResponse:
+    """The user's API tokens (OAuth 2.0 grants), with forms to create and
+    revoke them. A just-created refresh token is shown here once."""
+    user = request_user(request)
+    new_api_token = cast(
+        dict[str, str] | None, request.session.pop(NEW_TOKEN_SESSION_KEY, None)
+    )
+    response = render(
+        request,
+        "accounts/api_tokens.html",
+        {
+            "token_form": ApiTokenForm(),
+            "api_grants": active_grants_for(user),
+            "new_api_token": new_api_token,
+        },
+    )
+    if new_api_token is not None:
+        # The page shows a refresh token: keep it out of the browser's cache
+        # (and its back button), as RFC 6749 asks of token responses.
+        add_never_cache_headers(response)
+    return response
+
+
+@login_required
+@require_POST
+def api_token_create(request: HttpRequest) -> HttpResponse:
+    """Create an API grant; the API tokens page shows its refresh token once,
+    after the redirect."""
+    user = request_user(request)
+    form = ApiTokenForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, str(form.errors["name"][0]))
+        return redirect("accounts:api_tokens")
+    grant, token = issue_grant(user, cast(str, form.cleaned_data["name"]))
+    request.session[NEW_TOKEN_SESSION_KEY] = {"name": grant.name, "token": token}
+    return redirect("accounts:api_tokens")
+
+
+@login_required
+@require_POST
+def api_token_revoke(request: HttpRequest, pk: uuid.UUID) -> HttpResponse:
+    """Revoke one of the user's API grants (all its tokens); anyone else's is a 404."""
+    grant = revoke_grant(request_user(request), pk)
+    if grant is None:
+        raise Http404("No such token.")
+    messages.success(request, f"Revoked the token {grant.name}.")
+    return redirect("accounts:api_tokens")
 
 
 @login_required

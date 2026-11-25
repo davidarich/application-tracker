@@ -104,3 +104,18 @@ class AvatarForm(forms.Form):
 
     def clean_photo(self) -> ContentFile:
         return process_avatar(cast(UploadedFile, self.cleaned_data["photo"]))
+
+
+@final
+class ApiTokenForm(forms.Form):
+    """The name of a new API grant: what will use it. accounts/api_tokens.py
+    creates the grant and its first refresh token."""
+
+    name = forms.CharField(
+        max_length=100,
+        strip=True,
+        error_messages={"required": "Give the token a name, e.g. Browser extension."},
+        widget=forms.TextInput(
+            attrs={"placeholder": "e.g. Browser extension", "autocomplete": "off"}
+        ),
+    )

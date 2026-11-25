@@ -28,6 +28,16 @@ class Migration(migrations.Migration):
                 ("description", models.TextField(blank=True)),
                 ("is_deleted", models.BooleanField(db_index=True, default=False)),
                 ("deleted_at", models.DateTimeField(blank=True, null=True)),
+                (
+                    "creation_source",
+                    models.CharField(
+                        choices=[("manual", "Manual"), ("api", "API")],
+                        default="manual",
+                        editable=False,
+                        help_text="How the record was created. Set by the app, not by users.",
+                        max_length=10,
+                    ),
+                ),
             ],
             options={
                 "ordering": ["name"],
@@ -87,6 +97,16 @@ class Migration(migrations.Migration):
                 ("is_deleted", models.BooleanField(db_index=True, default=False)),
                 ("deleted_at", models.DateTimeField(blank=True, null=True)),
                 ("date_added", models.DateTimeField(auto_now_add=True)),
+                (
+                    "creation_source",
+                    models.CharField(
+                        choices=[("manual", "Manual"), ("api", "API")],
+                        default="manual",
+                        editable=False,
+                        help_text="How the record was created. Set by the app, not by users.",
+                        max_length=10,
+                    ),
+                ),
                 (
                     "company",
                     models.ForeignKey(

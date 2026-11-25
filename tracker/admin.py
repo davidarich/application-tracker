@@ -1,10 +1,12 @@
 from typing import final, override
 
 from django.contrib import admin
+from django.db import models
 from django.db.models import Model
 from django.http import HttpRequest
 
 from .admin_ownership import OwnedModelAdmin, OwnedStackedInline, OwnedTabularInline
+from .forms import PostingURLField
 from .models import (
     Application,
     ApplicationStatusChange,
@@ -49,7 +51,7 @@ class CompanyAdmin(OwnedModelAdmin[Company]):
     list_display = ["name", "website", "is_staffing_agency", "is_deleted", "date_added"]
     list_filter = ["is_deleted", "is_staffing_agency"]
     search_fields = ["name"]
-    readonly_fields = ["id", "date_added"]
+    readonly_fields = ["id", "date_added", "creation_source"]
     inlines = [ContactInline, JobInline]
 
 
@@ -93,8 +95,11 @@ class JobAdmin(OwnedModelAdmin[Job]):
     ]
     search_fields = ["title", "company__name", "location_city", "location_state"]
     autocomplete_fields = ["company", "skills"]
-    readonly_fields = ["id", "date_added"]
+    readonly_fields = ["id", "date_added", "creation_source"]
     inlines = [ApplicationInline]
+    # The posting link (Job's only URL field) is cleaned of tracking
+    # parameters here too, as in the app's form.
+    formfield_overrides = {models.URLField: {"form_class": PostingURLField}}
 
 
 @final
@@ -197,4 +202,4 @@ class SkillAdmin(admin.ModelAdmin[Skill]):
     list_display = ["name", "description", "is_deleted"]
     list_filter = ["is_deleted"]
     search_fields = ["name", "description"]
-    readonly_fields = ["id"]
+    readonly_fields = ["id", "creation_source"]

@@ -1,5 +1,6 @@
 Django>=5.2,<7.0
 django-stubs-ext>=6.1
+django-ninja>=1.8
 django-tailwind-cli>=4.10
 dateparser>=1.5
 gunicorn>=23.0

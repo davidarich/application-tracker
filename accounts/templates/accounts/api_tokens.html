@@ -1,0 +1,62 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}API tokens · Job Tracker{% endblock %}
+{% block breadcrumb %}API tokens{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl">
+  <h1 class="text-2xl font-semibold tracking-tight">API tokens</h1>
+  <p class="mt-1 text-sm text-ink-muted">
+    Programs use a token to add and change your jobs, companies and skills through the JSON API at <code class="text-ink">/api/v1/</code>, with OAuth 2.0.
+    <a href="{% url 'api:openapi-view' %}" class="underline underline-offset-2 hover:text-ink">API docs</a>
+  </p>
+
+  {% if new_api_token %}
+    <div class="mt-6 rounded-2xl border border-accent/30 bg-accent/10 p-5" role="status">
+      <p class="text-sm font-medium text-ink">Your new refresh token for {{ new_api_token.name }}</p>
+      <p class="mt-2 rounded-lg border border-line bg-canvas px-3 py-2 font-mono text-sm break-all text-ink select-all">{{ new_api_token.token }}</p>
+      <p class="mt-2 text-xs text-ink-muted">Copy it now: it won't be shown again. The program exchanges it at <code>/api/v1/oauth/token</code> for an access token, which lasts 15 minutes, and a new refresh token. Each refresh token works once.</p>
+    </div>
+  {% endif %}
+
+  <section id="api-tokens" class="mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" aria-labelledby="api-tokens-title">
+    <h2 id="api-tokens-title" class="text-base font-semibold text-ink">Your tokens</h2>
+    <p class="mt-0.5 text-xs text-ink-faint">Revoking a token stops the program using it straight away.</p>
+    {% if api_grants %}
+      <ul class="mt-4 divide-y divide-line">
+        {% for grant in api_grants %}
+          <li class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-3 first:pt-0 last:pb-0">
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-ink">{{ grant.name }}</p>
+              <p class="mt-0.5 text-xs text-ink-faint">
+                Created {{ grant.created_at|date:"M j, Y" }} · {% if grant.last_used_at %}Last used {{ grant.last_used_at|date:"M j, Y" }}{% else %}Never used{% endif %}
+              </p>
+            </div>
+            <form method="post" action="{% url 'accounts:api_token_revoke' grant.id %}">
+              {% csrf_token %}
+              <button type="submit" class="cursor-pointer rounded-lg px-2 py-1 text-sm text-ink-muted underline-offset-2 transition hover:text-ink hover:underline">Revoke <span class="sr-only">{{ grant.name }}</span></button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="mt-4 rounded-xl border border-dashed border-line px-4 py-6 text-center text-sm text-ink-faint">You don't have any API tokens.</p>
+    {% endif %}
+  </section>
+
+  <form method="post" action="{% url 'accounts:api_token_create' %}" class="mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" aria-labelledby="create-token-title">
+    {% csrf_token %}
+    <h2 id="create-token-title" class="text-base font-semibold text-ink">Create a token</h2>
+    <p class="mt-0.5 text-xs text-ink-faint">Name it after what will use it, so you know which one to revoke later.</p>
+    <div class="mt-4 flex flex-wrap items-end gap-3">
+      <div class="form-field min-w-56 flex-1">
+        <label for="{{ token_form.name.id_for_label }}">Token name</label>
+        {{ token_form.name }}
+      </div>
+      <button type="submit" class="cursor-pointer rounded-xl bg-linear-to-r from-accent to-accent-2 px-3.5 py-2 text-sm font-semibold text-canvas transition hover:brightness-110 focus-visible:ring-4 focus-visible:ring-accent/30 focus-visible:outline-none">
+        Create token
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

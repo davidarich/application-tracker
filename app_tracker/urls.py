@@ -24,4 +24,5 @@ urlpatterns = [
     ),
     path("", include("accounts.urls")),
     path("", include("tracker.urls")),
+    path("", include("api.urls")),  # the JSON API, at /api/v1/
 ]

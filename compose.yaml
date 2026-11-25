@@ -1,0 +1,52 @@
+# The web app and the JSON API as two containers sharing one SQLite database
+# on the app-tracker-data volume (the same volume `docker run` uses in the
+# README). Only `web` runs migrations; `api` starts once `web` is healthy.
+#
+#   DJANGO_SECRET_KEY="<a long random string>" docker compose up -d --build
+#
+# SQLite is fine for two containers on one machine. When they move to
+# separate machines, switch both to a database server such as PostgreSQL.
+
+services:
+  web:
+    build:
+      context: .
+      target: web
+    image: app-tracker
+    ports:
+      - "8000:8000"
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY}
+    volumes:
+      - app-tracker-data:/app/data
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/login/')
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      target: api
+    image: app-tracker-api
+    ports:
+      - "8001:8001"
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY}
+    volumes:
+      - app-tracker-data:/app/data
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  app-tracker-data:
+    name: app-tracker-data

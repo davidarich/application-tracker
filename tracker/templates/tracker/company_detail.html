@@ -39,6 +39,10 @@
         <dt class="text-xs text-ink-faint">Added</dt>
         <dd class="mt-0.5 text-ink tabular-nums"><time datetime="{{ company.date_added|date:'c' }}">{{ company.date_added|date:"M j, Y" }}</time></dd>
       </div>
+      <div>
+        <dt class="text-xs text-ink-faint">Creation source</dt>
+        <dd class="mt-0.5 text-ink">{{ company.get_creation_source_display }}</dd>
+      </div>
       <div class="sm:col-span-2">
         <dt class="text-xs text-ink-faint">Mission statement</dt>
         <dd class="mt-0.5 leading-relaxed whitespace-pre-line {% if company.mission_statement %}text-ink{% else %}text-ink-muted{% endif %}">{{ company.mission_statement|default:"Not added yet." }}</dd>

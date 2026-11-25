@@ -1,4 +1,8 @@
-FROM python:3.13-slim
+# Two images from one build: `web` (the site, which also serves the API) and
+# `api` (only the JSON API, for running it in a container of its own). A plain
+# `docker build .` builds `web`, the last stage. See compose.yaml for both.
+
+FROM python:3.13-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -17,17 +21,41 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
-# Compile the Tailwind stylesheet (downloads the Tailwind CLI for this platform),
-# then collect all static files for WhiteNoise to serve
-RUN python manage.py tailwind build \n    && python manage.py collectstatic --noinput
-
 # Run as an unprivileged user; /app/data holds the SQLite database and uploads
 RUN useradd --create-home --uid 1000 app \
     && mkdir -p /app/data/uploads \
     && chown -R app:app /app/data
-USER app
 
 VOLUME ["/app/data"]
+
+
+# --- API only ------------------------------------------------------------------
+FROM base AS api
+
+ENV DJANGO_ROLE=api
+
+# Only the API docs' scripts and styles: no site pages, so no Tailwind build
+RUN python manage.py collectstatic --noinput
+
+USER app
+EXPOSE 8001
+
+# The web container owns the database schema: this refuses to start (and
+# restarts until it's ready) while there are migrations it hasn't applied.
+CMD ["sh", "-c", "python manage.py migrate --check && exec gunicorn app_tracker.wsgi:application --bind 0.0.0.0:8001 --workers 2"]
+
+
+# --- Web (the default) ---------------------------------------------------------
+FROM base AS web
+
+ENV DJANGO_ROLE=web
+
+# Compile the Tailwind stylesheet (downloads the Tailwind CLI for this platform),
+# then collect all static files for WhiteNoise to serve
+RUN python manage.py tailwind build \
+    && python manage.py collectstatic --noinput
+
+USER app
 EXPOSE 8000
 
 CMD ["sh", "-c", "python manage.py migrate --noinput && exec gunicorn app_tracker.wsgi:application --bind 0.0.0.0:8000 --workers 2"]

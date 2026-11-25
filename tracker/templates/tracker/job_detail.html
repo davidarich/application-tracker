@@ -52,6 +52,20 @@
         <dt class="text-xs text-ink-faint">Updated</dt>
         <dd class="mt-0.5 text-ink tabular-nums"><time datetime="{{ job.last_updated|date:'c' }}">{{ job.last_updated|date:"M j, Y" }}</time></dd>
       </div>
+      <div>
+        <dt class="text-xs text-ink-faint">Added</dt>
+        <dd class="mt-0.5 text-ink tabular-nums"><time datetime="{{ job.date_added|date:'c' }}">{{ job.date_added|date:"M j, Y" }}</time></dd>
+      </div>
+      <div>
+        <dt class="text-xs text-ink-faint">Creation source</dt>
+        <dd class="mt-0.5 text-ink">{{ job.get_creation_source_display }}</dd>
+      </div>
+      <div>
+        <dt class="text-xs text-ink-faint">Hiring system</dt>
+        <dd class="mt-0.5 {% if job.hiring_system %}text-ink{% else %}text-ink-muted{% endif %}">
+          {% if job.hiring_system %}{{ job.hiring_system.name }}{% elif job.posting_url %}Not recognised{% else %}No posting link{% endif %}
+        </dd>
+      </div>
       <div class="sm:col-span-2 lg:col-span-4">
         <dt class="text-xs text-ink-faint">Job posting</dt>
         <dd class="mt-0.5 text-ink">
