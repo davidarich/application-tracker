@@ -1,11 +1,23 @@
-# The web app and the JSON API as two containers sharing one SQLite database
-# on the app-tracker-data volume (the same volume `docker run` uses in the
-# README). Only `web` runs migrations; `api` starts once `web` is healthy.
+# The web app and the JSON API as two containers. Only `web` runs migrations;
+# `api` starts once `web` is healthy.
+#
+# With SQLite (the default), both share the database file on the
+# app-tracker-data volume (the same volume `docker run` uses in the README):
 #
 #   DJANGO_SECRET_KEY="<a long random string>" docker compose up -d --build
 #
-# SQLite is fine for two containers on one machine. When they move to
-# separate machines, switch both to a database server such as PostgreSQL.
+# SQLite is fine for two containers on one machine. With PostgreSQL, the
+# `postgres` profile adds a database container (data on the app-tracker-pg
+# volume). Set its password, and the URL both containers connect with:
+#
+#   DJANGO_SECRET_KEY="<a long random string>" \
+#   POSTGRES_PASSWORD="<a password>" \
+#   DJANGO_DATABASE_URL="postgres://app_tracker:<the password>@db:5432/app_tracker" \
+#   docker compose --profile postgres up -d --build
+#
+# To use a PostgreSQL server elsewhere (e.g. a managed one), set only
+# DJANGO_DATABASE_URL, to that server, and leave out the profile.
+# Uploaded files stay on the app-tracker-data volume either way.
 
 services:
   web:
@@ -17,8 +29,13 @@ services:
       - "8000:8000"
     environment:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY}
+      DJANGO_DATABASE_URL: ${DJANGO_DATABASE_URL:-}  # empty: SQLite
     volumes:
       - app-tracker-data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+        required: false  # only with the postgres profile
     healthcheck:
       test:
         - CMD
@@ -40,6 +57,7 @@ services:
       - "8001:8001"
     environment:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY}
+      DJANGO_DATABASE_URL: ${DJANGO_DATABASE_URL:-}
     volumes:
       - app-tracker-data:/app/data
     depends_on:
@@ -47,6 +65,26 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  db:
+    image: postgres:17
+    profiles: ["postgres"]
+    environment:
+      POSTGRES_USER: app_tracker
+      POSTGRES_DB: app_tracker
+      # Required: the database refuses to start without a password.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+    volumes:
+      - app-tracker-pg:/var/lib/postgresql/data
+    # Not published on the host: only the app's containers reach it.
+    healthcheck:
+      test: ["CMD", "pg_isready", "--username=app_tracker", "--dbname=app_tracker"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
 volumes:
   app-tracker-data:
     name: app-tracker-data
+  app-tracker-pg:
+    name: app-tracker-pg

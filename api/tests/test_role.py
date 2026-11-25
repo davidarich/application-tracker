@@ -34,6 +34,9 @@ def run_django(role: str, *args: str) -> subprocess.CompletedProcess[str]:
             "DJANGO_DEBUG": "0",
             "DJANGO_ALLOWED_HOSTS": "testserver",
             "DJANGO_DB_PATH": str(Path(folder) / "db.sqlite3"),
+            # A throwaway SQLite file, even when the tests run on PostgreSQL:
+            # these requests don't need the database.
+            "DJANGO_DATABASE_URL": "",
         }
         return subprocess.run(
             [sys.executable, *args],

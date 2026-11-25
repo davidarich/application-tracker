@@ -11,6 +11,8 @@ from pathlib import Path
 import django_stubs_ext
 from django.core.exceptions import ImproperlyConfigured
 
+from app_tracker.database import database_settings
+
 # Let Django classes such as ModelAdmin take type arguments at runtime
 # (e.g. ModelAdmin[Company]), as the type stubs expect.
 django_stubs_ext.monkeypatch()
@@ -108,21 +110,9 @@ WSGI_APPLICATION = "app_tracker.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/stable/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": os.environ.get("DJANGO_DB_PATH", BASE_DIR / "db.sqlite3"),
-        # The web and API processes can share the file (on one machine, not
-        # a network drive): WAL lets one read while the other writes, and
-        # IMMEDIATE takes the write lock when a transaction starts, so two
-        # writers wait their turn (up to `timeout` seconds) instead of failing.
-        "OPTIONS": {
-            "init_command": "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;",
-            "transaction_mode": "IMMEDIATE",
-            "timeout": 20,
-        },
-    }
-}
+# SQLite by default; PostgreSQL when DJANGO_DATABASE_URL is set. See
+# app_tracker/database.py.
+DATABASES = database_settings(os.environ, BASE_DIR)
 
 
 # Password validation

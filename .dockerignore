@@ -23,3 +23,6 @@ uploads
 assets/css/tailwind.css
 # Test fixtures (e.g. a real resume) don't belong in the image.
 **/tests/fixtures
+# CI and development scripts
+.github
+scripts

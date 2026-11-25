@@ -59,6 +59,8 @@ Job application tracker written in Python using the Django framework.
   preferred name, phone number and profile photo.
 - **Mock data:** a `seed` command creates realistic, fictional data for
   development.
+- **SQLite or PostgreSQL:** SQLite by default, with no setup; PostgreSQL by
+  setting one environment variable, in development or production.
 
 ### API
 
@@ -159,8 +161,14 @@ information. To install only what the app needs to run, use
 ruff check .
 ruff format --check .
 basedpyright
-python manage.py test
+python manage.py test                 # on SQLite, or the database you've chosen
+./scripts/test-postgres.ps1           # on PostgreSQL, in a throwaway Docker container (Windows)
+./scripts/test-postgres.sh            # the same, on Linux and macOS
 ```
+
+GitHub Actions (`.github/workflows/tests.yml`) runs Ruff and basedpyright, and
+the tests on SQLite and PostgreSQL with Python 3.13 (the Docker image's) and
+3.15, on every push and pull request.
 
 `pyrightconfig.json` points basedpyright at `.venv`, so editors that use
 basedpyright or Pyright (such as Zed) find the same packages as the command line.
@@ -340,8 +348,76 @@ $env:DJANGO_ROLE = "api"; python manage.py runserver 8001; Remove-Item Env:DJANG
 Both processes can share the SQLite file: the database runs in WAL mode, so
 one can read while the other writes, and writers wait their turn for up to 20
 seconds. This works on one machine (not on a network drive). When the web app
-and API move to separate machines, switch both to a database server such as
-PostgreSQL.
+and API move to separate machines, switch both to PostgreSQL (see
+[Using PostgreSQL](#using-postgresql)).
+
+## Using PostgreSQL
+
+The app uses SQLite unless `DJANGO_DATABASE_URL` is set to a PostgreSQL URL:
+
+```
+postgres://<user>:<password>@<host>:<port>/<database>
+postgres://<user>:<password>@<host>:<port>/<database>?sslmode=require
+```
+
+- **Driver:** query parameters such as `sslmode` go to the PostgreSQL driver
+  ([psycopg](https://www.psycopg.org/psycopg3/)), which is installed with the
+  app's requirements.
+- **Special characters:** URL-encode any in the password (`@` as `%40`, for
+  example).
+- **Connections:** they're kept open for reuse for 60 seconds, or
+  `DJANGO_DB_CONN_MAX_AGE` seconds (`0` closes them after each request). A
+  dropped connection is replaced instead of failing a request.
+- **Other URLs:** anything other than a PostgreSQL URL stops the app with an
+  error.
+
+With PostgreSQL, the database takes the place of the SQLite file only:
+uploaded files are still stored in `DJANGO_MEDIA_ROOT`.
+
+### In development
+
+Run PostgreSQL in Docker (or install it), point the app at it and create the
+tables:
+
+```powershell
+docker run -d --name app-tracker-pg -p 127.0.0.1:5432:5432 `
+  -e POSTGRES_USER=app_tracker -e POSTGRES_PASSWORD=app_tracker -e POSTGRES_DB=app_tracker `
+  -v app-tracker-pg-dev:/var/lib/postgresql/data postgres:17
+$env:DJANGO_DATABASE_URL = "postgres://app_tracker:app_tracker@localhost:5432/app_tracker"
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py tailwind runserver
+```
+
+To go back to SQLite, clear the variable (`Remove-Item Env:DJANGO_DATABASE_URL`).
+The two databases are separate: switching doesn't copy records between them.
+
+Running the tests on PostgreSQL needs a user that may create databases (the
+test runner creates and drops `test_<database>`). The Docker image's user can.
+`./scripts/test-postgres.ps1` (Windows) or `./scripts/test-postgres.sh` (Linux
+and macOS) starts a throwaway PostgreSQL container, runs the tests against it
+and removes it. Both take a port (`-Port 55433` or `--port 55433`; 55432 by
+default) and test labels to pass on, such as `tracker.tests.test_jobs`. If the
+shell script isn't executable after a checkout, run it with
+`bash scripts/test-postgres.sh`.
+
+### In production
+
+- **Database server:** use a managed PostgreSQL service, or run PostgreSQL in its
+  own container (the Compose `postgres` profile, below).
+- **TLS:** add `?sslmode=require` to the URL when the database is on another
+  machine.
+- **Database user:** give the app its own user, which owns the app's database but
+  isn't a superuser.
+- **Migrations:** run on start by the `web` container only, as with SQLite.
+- **Backups:**
+
+  ```powershell
+  pg_dump --format=custom --file=app_tracker.dump $env:DJANGO_DATABASE_URL
+  pg_restore --clean --if-exists --dbname=$env:DJANGO_DATABASE_URL app_tracker.dump
+  ```
+
+  Back up `DJANGO_MEDIA_ROOT` too, for uploaded files.
 
 ## Docker
 
@@ -374,11 +450,27 @@ http://localhost:8001/api/v1/. Only `web` runs migrations. `api` starts once
 `web` is healthy, and refuses to start while the database has migrations it
 hasn't applied.
 
+With PostgreSQL, the `postgres` profile adds a database container. It keeps its
+data on the `app-tracker-pg` volume and is reachable only from the app's
+containers. Set its password, and the URL both containers connect with:
+
+```powershell
+$env:DJANGO_SECRET_KEY = "<a long random string>"
+$env:POSTGRES_PASSWORD = "<a password>"
+$env:DJANGO_DATABASE_URL = "postgres://app_tracker:<the password>@db:5432/app_tracker"
+docker compose --profile postgres up -d --build
+```
+
+To use a PostgreSQL server elsewhere, such as a managed one, set only
+`DJANGO_DATABASE_URL` to that server and leave out the profile.
+
 | Variable               | Default in container             | Purpose                                                      |
 | ---------------------- | -------------------------------- | ------------------------------------------------------------ |
 | `DJANGO_SECRET_KEY`    | insecure dev key                 | **Set this** for anything beyond local testing               |
 | `DJANGO_DEBUG`         | `0`                              | `1` enables debug mode                                       |
 | `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1`            | Comma-separated hostnames the app will serve                 |
 | `DJANGO_DB_PATH`       | `/app/data/db.sqlite3`           | SQLite database file location                                |
+| `DJANGO_DATABASE_URL`  | none (SQLite)                    | A PostgreSQL URL, to use PostgreSQL instead of SQLite        |
+| `DJANGO_DB_CONN_MAX_AGE` | `60`                           | Seconds a PostgreSQL connection is kept open for reuse       |
 | `DJANGO_MEDIA_ROOT`    | `/app/data/uploads`              | Folder where uploaded files are stored                       |
 | `DJANGO_ROLE`          | `web` (`api` in the `api` image) | `web` serves the site and the API; `api` serves only the API |
