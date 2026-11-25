@@ -21,10 +21,12 @@ USER_MODEL = cast(str, settings.AUTH_USER_MODEL)
 
 
 class CreationSource(models.TextChoices):
-    """How a record was created, for records the JSON API can create too."""
+    """How a record was created, for records the JSON API and the MCP server
+    can create too."""
 
     MANUAL = "manual", "Manual"  # by the user in the app (or the admin)
     API = "api", "API"  # through the JSON API (api/)
+    MCP = "mcp", "MCP"  # by an AI agent through the MCP server (mcp_server/)
 
 
 def creation_source_field() -> models.CharField[str]:

@@ -3,8 +3,9 @@
 When a request fails with a server error, Django can send a report with the
 request's POST data and each traceback frame's local variables (by email to
 ADMINS, or to an error tracker). It already hides the Authorization header, but
-not the token endpoint's `refresh_token` parameter or variables that hold a
-token. This filter (settings.DEFAULT_EXCEPTION_REPORTER_FILTER) hides those too.
+not the token endpoint's secret parameters (`refresh_token`, `code`, ...) or
+variables that hold a token. This filter
+(settings.DEFAULT_EXCEPTION_REPORTER_FILTER) hides those too.
 Like Django's own filter, it's active when DEBUG is off.
 """
 
@@ -14,10 +15,12 @@ from typing import cast, override
 from django.http import HttpRequest, QueryDict
 from django.views.debug import SafeExceptionReporterFilter
 
-# POST parameters that are always secret (RFC 6749 section 6 names the first).
-TOKEN_PARAMETERS = frozenset({"refresh_token", "access_token"})
-# Anything that looks like one of our tokens (accounts/api_tokens.py).
-TOKEN_RE = re.compile(r"(?:at|rt)_[A-Za-z0-9_-]{20,}")
+# POST parameters that are always secret (RFC 6749 section 6 names the first;
+# the authorization code grant sends the last two, accounts/oauth.py).
+TOKEN_PARAMETERS = frozenset({"refresh_token", "access_token", "code", "code_verifier"})
+# Anything that looks like one of our tokens or authorization codes
+# (accounts/api_tokens.py, accounts/oauth.py).
+TOKEN_RE = re.compile(r"(?:at|rt|ac)_[A-Za-z0-9_-]{20,}")
 
 
 class TokenSafeExceptionReporterFilter(SafeExceptionReporterFilter):

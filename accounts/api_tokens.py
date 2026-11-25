@@ -11,6 +11,10 @@ token. The program swaps a refresh token at the token endpoint
   period, so two exchanges of one refresh token at the same moment count too.
   A refresh token not exchanged within REFRESH_TOKEN_LIFETIME expires.
 
+Grants made on the API tokens page are for the JSON API; grants made when the
+user lets an OAuth client connect (accounts/oauth.py) are for the MCP server.
+An access token works only with its grant's audience.
+
 Tokens are opaque: "at_" or "rt_" followed by 43 random URL-safe characters.
 The first PREFIX_LENGTH characters find the row; the whole token is stored
 only as a SHA-256 hash (a fast hash is enough for a random 256-bit secret,
@@ -28,9 +32,10 @@ from typing import final
 from django.db import transaction
 from django.utils import timezone
 
-from .models import ApiGrant, ApiToken, User
+from .models import ApiGrant, ApiToken, OAuthClient, User
 
 Kind = ApiToken.Kind
+Audience = ApiGrant.Audience
 
 ACCESS_TOKEN_LIFETIME = timedelta(minutes=15)
 REFRESH_TOKEN_LIFETIME = timedelta(days=90)
@@ -91,7 +96,7 @@ def find_token(token: str, kind: str) -> ApiToken | None:
         return None
     record = (
         ApiToken.objects.filter(prefix=token[:PREFIX_LENGTH], kind=kind)
-        .select_related("grant__user")
+        .select_related("grant__user", "grant__client")
         .first()
     )
     if record is None or not hmac.compare_digest(record.key_hash, hash_token(token)):
@@ -109,32 +114,41 @@ def touch(grant: ApiGrant) -> None:
         _ = ApiGrant.objects.filter(id=grant.id).update(last_used_at=now)
 
 
-def user_for_access_token(token: str) -> User | None:
-    """The active user of a live, unexpired access token, else None."""
+def live_access_token(token: str, audience: str) -> ApiToken | None:
+    """The stored access token matching `token`, if it's unexpired and its
+    grant is live, for an active user, and for `audience`; else None."""
     record = find_token(token, Kind.ACCESS)
     if record is None or record.expires_at <= timezone.now():
         return None
-    if not grant_is_live(record.grant):
+    if not grant_is_live(record.grant) or record.grant.audience != audience:
         return None
     touch(record.grant)
-    return record.grant.user
+    return record
 
 
-def refresh_tokens(refresh_token: str) -> TokenPair:
+def user_for_access_token(token: str, audience: str = Audience.API) -> User | None:
+    """The active user of a live, unexpired access token for `audience`
+    (the JSON API unless given), else None."""
+    record = live_access_token(token, audience)
+    return record.grant.user if record is not None else None
+
+
+def refresh_tokens(refresh_token: str, client_id: str = "") -> TokenPair:
     """Swap a refresh token for a new access token and refresh token.
 
     Raises RefreshError if the refresh token is unknown, expired, revoked or
-    already used (which also revokes its grant).
+    already used (which also revokes its grant), or if its grant belongs to
+    an OAuth client and `client_id` isn't that client's.
     """
     now = timezone.now()
     with transaction.atomic():
-        outcome = _rotate(refresh_token, now)
+        outcome = _rotate(refresh_token, client_id, now)
     if isinstance(outcome, str):
         raise RefreshError(outcome)
     return outcome
 
 
-def _rotate(refresh_token: str, now: datetime) -> TokenPair | str:
+def _rotate(refresh_token: str, client_id: str, now: datetime) -> TokenPair | str:
     """refresh_tokens()'s work, in its transaction; returns the refusal reason
     instead of raising, so revoking a reused token's grant is kept."""
     record = find_token(refresh_token, Kind.REFRESH)
@@ -143,6 +157,10 @@ def _rotate(refresh_token: str, now: datetime) -> TokenPair | str:
     grant = record.grant
     if not grant_is_live(grant):
         return "The refresh token has been revoked."
+    if grant.client is not None and client_id != grant.client.client_id:
+        # A public client has no secret: its client_id must at least match
+        # (OAuth 2.1 section 4.3.1).
+        return "The refresh token was issued to another client."
     if record.expires_at <= now:
         return (
             "The refresh token has expired. Create a new one on your API tokens page."
@@ -161,11 +179,24 @@ def _rotate(refresh_token: str, now: datetime) -> TokenPair | str:
     # they expire, to catch reuse).
     _ = ApiToken.objects.filter(grant=grant, expires_at__lte=now).delete()
     touch(grant)
+    return token_pair(grant)
+
+
+def token_pair(grant: ApiGrant) -> TokenPair:
+    """A new access token and refresh token for `grant`."""
     return TokenPair(
         access_token=new_token(grant, Kind.ACCESS),
         refresh_token=new_token(grant, Kind.REFRESH),
         expires_in=int(ACCESS_TOKEN_LIFETIME.total_seconds()),
     )
+
+
+def issue_mcp_grant(user: User, client: OAuthClient) -> tuple[ApiGrant, TokenPair]:
+    """Create an MCP grant for `user` and `client`, with its first tokens."""
+    grant = ApiGrant.objects.create(
+        user=user, name=client.name, audience=Audience.MCP, client=client
+    )
+    return grant, token_pair(grant)
 
 
 def end_grant(grant: ApiGrant) -> None:
@@ -174,8 +205,13 @@ def end_grant(grant: ApiGrant) -> None:
     _ = ApiToken.objects.filter(grant=grant).delete()
 
 
-def active_grants_for(user: User) -> list[ApiGrant]:
-    return list(ApiGrant.objects.filter(user=user, revoked_at__isnull=True))
+def active_grants_for(user: User, audience: str = Audience.API) -> list[ApiGrant]:
+    """`user`'s live grants for `audience` (the JSON API unless given)."""
+    return list(
+        ApiGrant.objects.filter(
+            user=user, audience=audience, revoked_at__isnull=True
+        ).select_related("client")
+    )
 
 
 def revoke_grant(user: User, grant_id: uuid.UUID) -> ApiGrant | None:

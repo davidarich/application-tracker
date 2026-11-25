@@ -1,6 +1,7 @@
-# Two images from one build: `web` (the site, which also serves the API) and
-# `api` (only the JSON API, for running it in a container of its own). A plain
-# `docker build .` builds `web`, the last stage. See compose.yaml for both.
+# Three images from one build: `web` (the site, which also serves the API),
+# `api` (only the JSON API, for running it in a container of its own) and `mcp`
+# (the MCP server for AI agents). A plain `docker build .` builds `web`, the
+# last stage. See compose.yaml for all three.
 
 FROM python:3.13-slim AS base
 
@@ -43,6 +44,19 @@ EXPOSE 8001
 # The web container owns the database schema: this refuses to start (and
 # restarts until it's ready) while there are migrations it hasn't applied.
 CMD ["sh", "-c", "python manage.py migrate --check && exec gunicorn app_tracker.wsgi:application --bind 0.0.0.0:8001 --workers 2"]
+
+
+# --- MCP server ------------------------------------------------------------------
+FROM base AS mcp
+
+ENV DJANGO_ROLE=mcp
+
+USER app
+EXPOSE 8002
+
+# Like `api`, it waits for the web container to apply migrations. Stateless,
+# so any worker can answer any request.
+CMD ["sh", "-c", "python manage.py migrate --check && exec uvicorn mcp_server.asgi:app --host 0.0.0.0 --port 8002 --workers 2"]
 
 
 # --- Web (the default) ---------------------------------------------------------

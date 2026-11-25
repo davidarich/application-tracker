@@ -80,4 +80,31 @@ class ApiRoleTests(SimpleTestCase):
     def test_an_unknown_role_is_refused(self):
         result = run_django("worker", "manage.py", "check")
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn('DJANGO_ROLE must be "web" or "api"', result.stderr)
+        self.assertIn('DJANGO_ROLE must be "web", "api" or "mcp"', result.stderr)
+
+
+# What the MCP process loads (mcp_server/asgi.py sets Django up itself).
+MCP_PROBE = """
+from mcp_server.asgi import app
+from django.conf import settings
+print("role", settings.ROLE)
+print("apps", ",".join(settings.INSTALLED_APPS))
+print("app", type(app).__name__)
+"""
+
+
+class McpRoleTests(SimpleTestCase):
+    def test_the_mcp_role_loads_the_mcp_app_with_only_the_apis_apps(self):
+        result = run_django("mcp", "-c", MCP_PROBE)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        lines = dict(line.split(" ", 1) for line in result.stdout.splitlines())
+        self.assertEqual(lines["role"], "mcp")
+        self.assertEqual(lines["app"], "Starlette")
+        apps = lines["apps"].split(",")
+        self.assertIn("accounts", apps)
+        self.assertNotIn("django.contrib.sessions", apps)
+        self.assertNotIn("django.contrib.admin", apps)
+
+    def test_the_mcp_role_passes_the_system_checks(self):
+        result = run_django("mcp", "manage.py", "check")
+        self.assertEqual(result.returncode, 0, result.stderr)

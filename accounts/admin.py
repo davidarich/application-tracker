@@ -7,7 +7,7 @@ from django.http import HttpRequest
 
 from .api_tokens import end_grant
 from .forms import UserChangeAdminForm, UserCreationAdminForm
-from .models import ApiGrant, ApiToken, User
+from .models import ApiGrant, ApiToken, OAuthClient, User
 
 # The shape of ModelAdmin fieldsets: (title, {"fields": (...), ...}) pairs.
 type Fieldsets = tuple[tuple[str | None, dict[str, tuple[str, ...]]], ...]
@@ -97,13 +97,30 @@ class ApiTokenInline(admin.TabularInline[ApiToken]):
 @admin.register(ApiGrant)
 @final
 class ApiGrantAdmin(admin.ModelAdmin[ApiGrant]):
-    """API grants, to see what's in use and revoke access. Grants are made on
-    the API tokens page (the only place a refresh token is ever shown)."""
+    """API grants, to see what's in use and revoke access. JSON API grants are
+    made on the API tokens page (the only place a refresh token is ever
+    shown); MCP grants when a user allows an app on the consent page."""
 
-    list_display = ("name", "user", "created_at", "last_used_at", "revoked_at")
-    list_filter = (("revoked_at", admin.EmptyFieldListFilter),)
+    list_display = (
+        "name",
+        "user",
+        "audience",
+        "created_at",
+        "last_used_at",
+        "revoked_at",
+    )
+    list_filter = ("audience", ("revoked_at", admin.EmptyFieldListFilter))
     search_fields = ("name", "user__email")
-    readonly_fields = ("id", "user", "name", "created_at", "last_used_at", "revoked_at")
+    readonly_fields = (
+        "id",
+        "user",
+        "name",
+        "audience",
+        "client",
+        "created_at",
+        "last_used_at",
+        "revoked_at",
+    )
     inlines = (ApiTokenInline,)
     actions = ("revoke",)
 
@@ -118,3 +135,19 @@ class ApiGrantAdmin(admin.ModelAdmin[ApiGrant]):
             end_grant(grant)
         count = len(grants)
         self.message_user(request, f"Revoked {count} grant{'s' if count != 1 else ''}.")
+
+
+@admin.register(OAuthClient)
+@final
+class OAuthClientAdmin(admin.ModelAdmin[OAuthClient]):
+    """Apps registered to connect to the MCP server (they register
+    themselves; see accounts/oauth.py). Unused ones are deleted after a
+    day; one with grants can't be deleted (revoke those under API grants)."""
+
+    list_display = ("name", "client_id", "created_at")
+    search_fields = ("name", "client_id")
+    readonly_fields = ("id", "client_id", "name", "redirect_uris", "created_at")
+
+    @override
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False

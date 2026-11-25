@@ -73,7 +73,19 @@ Job application tracker written in Python using the Django framework.
 - **Runs on its own:** the API can be served by a separate container, sharing
   the database with the web app.
 - **Creation source:** companies, jobs and skills record whether they were
-  added in the app (Manual) or through the API, shown on each one's page.
+  added in the app (Manual), through the API or through the MCP server, shown
+  on each one's page.
+
+### MCP server
+
+- **AI agents** AI Agents can list,
+  read, add and change jobs, companies and skills, with the same rules as the
+  API, through a [Model Context Protocol](https://modelcontextprotocol.io/)
+  server.
+- **Log in from the app:** the agent opens a browser to a consent page (OAuth
+  2.0 with PKCE); connected apps are listed, and can be disconnected, on the
+  API tokens page.
+- **Runs on its own** in a third container, sharing the database.
 
 ## Setup
 
@@ -264,18 +276,18 @@ expires, so rapid requests need only one exchange every 15 minutes.
 
 ### Endpoints
 
-| Method and path                       | What it does                                                                                                                                                                                                                                                                                                                       |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /api/v1/oauth/token`            | Exchange a refresh token for an access token and a new refresh token (no access token needed)                                                                                                                                                                                                                                      |
-| `GET /api/v1/companies`               | Your companies, by name. `q` searches names                                                                                                                                                                                                                                                                                        |
-| `POST /api/v1/companies`              | Add a company                                                                                                                                                                                                                                                                                                                      |
-| `GET`, `PATCH /api/v1/companies/{id}` | Read or change a company                                                                                                                                                                                                                                                                                                           |
+| Method and path                       | What it does                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/v1/oauth/token`            | Exchange a refresh token for an access token and a new refresh token (no access token needed)                                                                                                                                                                                                                                                                                                                         |
+| `GET /api/v1/companies`               | Your companies, by name. `q` searches names                                                                                                                                                                                                                                                                                                                                                                           |
+| `POST /api/v1/companies`              | Add a company                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `GET`, `PATCH /api/v1/companies/{id}` | Read or change a company                                                                                                                                                                                                                                                                                                                                                                                              |
 | `GET /api/v1/jobs`                    | Your jobs, most recently updated first. Filters: `q` (title or company), `status` (`all` by default, `open`, `none` for not applied, or a status), `company` (an ID) and `posting_url` (the same posting as this link, e.g. to check whether a posting is already saved: copies that differ only in tracking parameters, http or https, `www.`, letter case, a trailing slash, parameter order or an `#anchor` match) |
-| `POST /api/v1/jobs`                   | Add a job                                                                                                                                                                                                                                                                                                                          |
-| `GET`, `PATCH /api/v1/jobs/{id}`      | Read or change a job, including its status                                                                                                                                                                                                                                                                                         |
-| `GET /api/v1/skills`                  | The shared skills, by name. `q` searches names and descriptions                                                                                                                                                                                                                                                                    |
-| `POST /api/v1/skills`                 | Add a skill (staff only)                                                                                                                                                                                                                                                                                                           |
-| `GET`, `PATCH /api/v1/skills/{id}`    | Read or change (staff only) a skill                                                                                                                                                                                                                                                                                                |
+| `POST /api/v1/jobs`                   | Add a job                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `GET`, `PATCH /api/v1/jobs/{id}`      | Read or change a job, including its status                                                                                                                                                                                                                                                                                                                                                                            |
+| `GET /api/v1/skills`                  | The shared skills, by name. `q` searches names and descriptions                                                                                                                                                                                                                                                                                                                                                       |
+| `POST /api/v1/skills`                 | Add a skill (staff only)                                                                                                                                                                                                                                                                                                                                                                                              |
+| `GET`, `PATCH /api/v1/skills/{id}`    | Read or change (staff only) a skill                                                                                                                                                                                                                                                                                                                                                                                   |
 
 Deleting isn't offered through the API yet.
 
@@ -283,9 +295,10 @@ Deleting isn't offered through the API yet.
   `{"count": <all matches>, "items": [...]}`.
 - **PATCH** changes only the fields sent.
 - **`creation_source`** in companies, jobs and skills is `manual` (added in the
-  app or the admin) or `api` (added through the API, including a company
-  created for a job's `company_name`). It's read-only: it's set when the record
-  is created and ignored in request bodies.
+  app or the admin), `api` (added through the API, including a company
+  created for a job's `company_name`) or `mcp` (added by an AI agent through
+  the [MCP server](#mcp-server)). It's read-only: it's set when the record is
+  created and ignored in request bodies.
 - **`posting_url`** is saved without tracking parameters, as on the site.
 - **`hiring_system`** in jobs is the applicant tracking system the posting link
   belongs to, such as `"Greenhouse"`, or `null` if there's no link or it isn't
@@ -338,6 +351,7 @@ format instead, described above):
 
 - **`web`** (the default) serves the site with the API at `/api/v1/`.
 - **`api`** serves only the API: no pages, admin, sessions or CSRF.
+- **`mcp`** is the [MCP server](#mcp-server), run with uvicorn.
 
 To try the API-only process locally, next to the site:
 
@@ -350,6 +364,101 @@ one can read while the other writes, and writers wait their turn for up to 20
 seconds. This works on one machine (not on a network drive). When the web app
 and API move to separate machines, switch both to PostgreSQL (see
 [Using PostgreSQL](#using-postgresql)).
+
+## MCP server
+
+The MCP server (the `mcp_server` app) lets AI agents work with your jobs,
+companies and skills: anything that speaks the
+[Model Context Protocol](https://modelcontextprotocol.io/), such as Claude
+Code or Claude Desktop. Its tools call the same code as the API, so they
+follow the same rules (validation, ownership, staff-only skills) and records
+they create are marked `mcp`.
+
+| Tool                                                                | Does                                                                                          |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `list_jobs`                                                         | Your jobs, filtered like `GET /api/v1/jobs` (`q`, `status`, `company`, `posting_url`, paging) |
+| `get_job`, `create_job`, `update_job`                               | Read, add or change a job (`update_job` changes only the fields given)                        |
+| `set_job_status`                                                    | Set a job's status, added to its status history                                               |
+| `list_companies`, `get_company`, `create_company`, `update_company` | Your companies                                                                                |
+| `list_skills`, `get_skill`                                          | The shared skills                                                                             |
+| `create_skill`, `update_skill`                                      | Add or change a skill: listed only to staff                                                   |
+
+Nothing can be deleted. A failure comes back as a tool error with the API's
+message (invalid fields listed one by one, not found, staff only), so the agent
+can correct itself.
+
+### Running it
+
+It's a separate process, served by uvicorn at `/mcp` (Streamable HTTP), next
+to the site:
+
+```powershell
+$env:DJANGO_ROLE = "mcp"; uvicorn mcp_server.asgi:app --port 8002; Remove-Item Env:DJANGO_ROLE
+```
+
+Then add it to your MCP client, e.g. Claude Code:
+
+```powershell
+claude mcp add --transport http job-tracker http://localhost:8002/mcp
+```
+
+The first time the client connects, it opens your browser. Log in to Job
+Tracker if you aren't already, check the app's name and where it sends you
+back to, and choose **Allow**. The client then keeps itself logged in.
+
+### How agents log in (OAuth 2.0)
+
+The web app is the OAuth authorization server, as the MCP spec asks:
+
+1. The MCP server answers a request without a token with 401 and a
+   `WWW-Authenticate` header pointing to its protected resource metadata
+   (`/.well-known/oauth-protected-resource/mcp`, RFC 9728), which names the web
+   app as the authorization server.
+2. The client reads the web app's metadata
+   (`/.well-known/oauth-authorization-server`, RFC 8414) and registers itself
+   at `POST /api/v1/oauth/register` (dynamic client registration, RFC 7591). It
+   gets a `client_id` and no secret: clients are public. Redirect URIs must be
+   https, or http on localhost (any port).
+3. It opens `/oauth/authorize/` with a PKCE `code_challenge` (S256 only) and
+   the MCP server's URL as `resource`. You log in and allow or deny it on the
+   consent page, which sends the browser back with a one-time code (valid for
+   5 minutes) and the issuer (`iss`, RFC 9207).
+4. It swaps the code at `POST /api/v1/oauth/token`
+   (`grant_type=authorization_code`, with its `code_verifier` and `client_id`)
+   for an access token (15 minutes) and a refresh token, then refreshes them
+   like any API grant, sending its `client_id`.
+
+- **Separate from API tokens:** these grants are listed under **Connected
+  apps** on the API tokens page, where **Disconnect** ends an app's access
+  straight away. Their tokens work only with the MCP server, and tokens from
+  the API tokens page only with the API (the MCP spec forbids accepting tokens
+  issued for another service).
+- **Copied codes and tokens:** a code, like a refresh token, works once.
+  Sending a used one again revokes the access it gave.
+- **Unused clients:** a registered client that's never allowed in is deleted
+  after a day.
+- **Rate limits:** the token endpoint allows 30 requests a minute per client
+  address, and registration 10 an hour per address and 100 an hour in total
+  (`OAUTH_RATE_LIMITS` in the settings). Every request counts, valid or not;
+  more get a 429 with `error: "too_many_requests"` and a `Retry-After` header.
+  The counts are kept in the database, so all processes share them. Behind a
+  reverse proxy, set `DJANGO_TRUSTED_PROXY_COUNT`, or every client shares the
+  proxy's address and so one limit.
+- **Browsers:** the metadata, registration and token endpoints allow any
+  origin (they use no cookies). The MCP server refuses requests with an
+  `Origin` header other than those in `DJANGO_MCP_ALLOWED_ORIGINS`, and a
+  `Host` other than its own or `DJANGO_ALLOWED_HOSTS`, guarding against DNS
+  rebinding.
+
+| Variable                     | Default                     | Purpose                                                                                              |
+| ---------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `DJANGO_OAUTH_ISSUER`        | `http://localhost:8000`     | The web app's public origin, as clients reach it. **Set it** in production, with https               |
+| `DJANGO_MCP_RESOURCE_URL`    | `http://localhost:8002/mcp` | The MCP server's public URL, ending in its path. **Set it** in production, with https                |
+| `DJANGO_MCP_ALLOWED_ORIGINS` | none                        | Comma-separated browser origins allowed to call the MCP server (web-based clients only)              |
+| `DJANGO_TRUSTED_PROXY_COUNT` | `0`                         | Reverse proxies in front of the app, so rate limits read the client's address from `X-Forwarded-For` |
+
+All processes need the first two: the web app and the API (which serves the
+token endpoint too) check the `resource` clients send against them.
 
 ## Using PostgreSQL
 
@@ -433,11 +542,12 @@ docker exec -it app-tracker python manage.py createsuperuser
 Then open http://localhost:8000/admin/. The SQLite database is stored in the
 `app-tracker-data` volume, so it survives container rebuilds.
 
-### Web app and API in separate containers
+### Web app, API and MCP server in separate containers
 
-The Dockerfile has two targets: `web` (the default, the site with the API) and
-`api` (only the API, without the site's stylesheet build). `compose.yaml` runs
-both, sharing the `app-tracker-data` volume:
+The Dockerfile has three targets: `web` (the default, the site with the API),
+`api` (only the API, without the site's stylesheet build) and `mcp` (the
+[MCP server](#mcp-server)). `compose.yaml` runs all three, sharing the
+`app-tracker-data` volume:
 
 ```powershell
 $env:DJANGO_SECRET_KEY = "<a long random string>"
@@ -445,10 +555,13 @@ docker compose up -d --build
 docker compose exec web python manage.py createsuperuser
 ```
 
-The site is at http://localhost:8000/ and the API-only container at
-http://localhost:8001/api/v1/. Only `web` runs migrations. `api` starts once
-`web` is healthy, and refuses to start while the database has migrations it
-hasn't applied.
+The site is at http://localhost:8000/, the API-only container at
+http://localhost:8001/api/v1/ and the MCP server at http://localhost:8002/mcp.
+Only `web` runs migrations. `api` and `mcp` start once `web` is healthy, and
+refuse to start while the database has migrations they haven't applied. When
+the site and the MCP server are served under other names (e.g. behind a proxy
+with HTTPS), set `DJANGO_OAUTH_ISSUER` and `DJANGO_MCP_RESOURCE_URL` for all
+three.
 
 With PostgreSQL, the `postgres` profile adds a database container. It keeps its
 data on the `app-tracker-pg` volume and is reachable only from the app's
@@ -464,13 +577,13 @@ docker compose --profile postgres up -d --build
 To use a PostgreSQL server elsewhere, such as a managed one, set only
 `DJANGO_DATABASE_URL` to that server and leave out the profile.
 
-| Variable               | Default in container             | Purpose                                                      |
-| ---------------------- | -------------------------------- | ------------------------------------------------------------ |
-| `DJANGO_SECRET_KEY`    | insecure dev key                 | **Set this** for anything beyond local testing               |
-| `DJANGO_DEBUG`         | `0`                              | `1` enables debug mode                                       |
-| `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1`            | Comma-separated hostnames the app will serve                 |
-| `DJANGO_DB_PATH`       | `/app/data/db.sqlite3`           | SQLite database file location                                |
-| `DJANGO_DATABASE_URL`  | none (SQLite)                    | A PostgreSQL URL, to use PostgreSQL instead of SQLite        |
-| `DJANGO_DB_CONN_MAX_AGE` | `60`                           | Seconds a PostgreSQL connection is kept open for reuse       |
-| `DJANGO_MEDIA_ROOT`    | `/app/data/uploads`              | Folder where uploaded files are stored                       |
-| `DJANGO_ROLE`          | `web` (`api` in the `api` image) | `web` serves the site and the API; `api` serves only the API |
+| Variable                 | Default in container                 | Purpose                                                                     |
+| ------------------------ | ------------------------------------ | --------------------------------------------------------------------------- |
+| `DJANGO_SECRET_KEY`      | insecure dev key                     | **Set this** for anything beyond local testing                              |
+| `DJANGO_DEBUG`           | `0`                                  | `1` enables debug mode                                                      |
+| `DJANGO_ALLOWED_HOSTS`   | `localhost,127.0.0.1`                | Comma-separated hostnames the app will serve                                |
+| `DJANGO_DB_PATH`         | `/app/data/db.sqlite3`               | SQLite database file location                                               |
+| `DJANGO_DATABASE_URL`    | none (SQLite)                        | A PostgreSQL URL, to use PostgreSQL instead of SQLite                       |
+| `DJANGO_DB_CONN_MAX_AGE` | `60`                                 | Seconds a PostgreSQL connection is kept open for reuse                      |
+| `DJANGO_MEDIA_ROOT`      | `/app/data/uploads`                  | Folder where uploaded files are stored                                      |
+| `DJANGO_ROLE`            | `web` (`api`, `mcp` in those images) | `web` serves the site and the API; `api` only the API; `mcp` the MCP server |

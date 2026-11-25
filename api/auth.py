@@ -4,7 +4,6 @@
 from typing import cast, final, override
 
 from django.http import HttpRequest
-from ninja.errors import HttpError
 from ninja.security import HttpBearer
 
 from accounts.api_tokens import TOKEN_STARTS, Kind, user_for_access_token
@@ -27,14 +26,6 @@ def api_user(request: HttpRequest) -> User:
     user = cast(object, getattr(request, "auth", None))
     if not isinstance(user, User):
         raise TypeError("api_user() needs a request authenticated by TokenAuth.")
-    return user
-
-
-def require_staff(request: HttpRequest) -> User:
-    """The request's user, who must be staff (else 403)."""
-    user = api_user(request)
-    if not user.is_staff:
-        raise HttpError(403, "Only staff can add or change skills.")
     return user
 
 

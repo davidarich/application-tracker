@@ -5,9 +5,16 @@ from typing import ClassVar, cast, get_args, override
 from urllib.parse import urlencode
 
 from accounts.models import User
-from tracker.models import Application, ApplicationStatusChange, Company, Job, Skill
+from tracker.models import (
+    Application,
+    ApplicationStatusChange,
+    Company,
+    CreationSource,
+    Job,
+    Skill,
+)
 
-from ..schemas import StatusValue, WorkplaceValue
+from ..schemas import CreationSourceValue, StatusValue, WorkplaceValue
 from .helpers import ApiTestCase, Json, items, names
 
 
@@ -47,6 +54,10 @@ class JobApiTests(ApiTestCase):
         self.assertEqual(
             set(get_args(cast(object, WorkplaceValue.__value__))),
             {"", *Job.WorkplaceType.values},
+        )
+        self.assertEqual(
+            set(get_args(cast(object, CreationSourceValue.__value__))),
+            set(CreationSource.values),
         )
 
     def test_create_with_a_company_id(self):

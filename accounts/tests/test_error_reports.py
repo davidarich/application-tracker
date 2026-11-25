@@ -53,6 +53,20 @@ class ErrorReportTests(TestCase):
             self.assertIn("refresh_token", report)  # with the parameter's name
             self.assertIn("grant_type", report)
 
+    def test_authorization_codes_and_verifiers_are_left_out_too(self):
+        code = "ac_" + "Z9y8X7w6V5" * 4 + "abc"
+        verifier = "v3r1f13r-" * 6
+        request = RequestFactory().post(
+            "/api/v1/oauth/token",
+            "grant_type=authorization_code&code=" + code + "&code_verifier=" + verifier,
+            content_type="application/x-www-form-urlencoded",
+        )
+        reporter = ExceptionReporter(request, *error_info(code))
+        for report in (reporter.get_traceback_text(), reporter.get_traceback_html()):
+            self.assertNotIn(code[3:], report)
+            self.assertNotIn(verifier, report)
+            self.assertIn("code_verifier", report)
+
     def test_token_pairs_never_show_their_tokens(self):
         pair = TokenPair(
             access_token=ACCESS_TOKEN, refresh_token="rt_secret", expires_in=900

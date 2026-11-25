@@ -1,14 +1,20 @@
-# The web app and the JSON API as two containers. Only `web` runs migrations;
-# `api` starts once `web` is healthy.
+# The web app, the JSON API and the MCP server (for AI agents) as three
+# containers. Only `web` runs migrations; `api` and `mcp` start once `web` is
+# healthy.
 #
-# With SQLite (the default), both share the database file on the
+# MCP clients log in through the web app (OAuth 2.0), so all three need the
+# public URLs of the web app (DJANGO_OAUTH_ISSUER) and of the MCP server
+# (DJANGO_MCP_RESOURCE_URL). The defaults suit this machine; set both when
+# serving them under other names, e.g. behind a proxy with HTTPS.
+#
+# With SQLite (the default), they share the database file on the
 # app-tracker-data volume (the same volume `docker run` uses in the README):
 #
 #   DJANGO_SECRET_KEY="<a long random string>" docker compose up -d --build
 #
-# SQLite is fine for two containers on one machine. With PostgreSQL, the
+# SQLite is fine for these containers on one machine. With PostgreSQL, the
 # `postgres` profile adds a database container (data on the app-tracker-pg
-# volume). Set its password, and the URL both containers connect with:
+# volume). Set its password, and the URL the containers connect with:
 #
 #   DJANGO_SECRET_KEY="<a long random string>" \
 #   POSTGRES_PASSWORD="<a password>" \
@@ -27,9 +33,13 @@ services:
     image: app-tracker
     ports:
       - "8000:8000"
-    environment:
+    environment: &environment
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY}
       DJANGO_DATABASE_URL: ${DJANGO_DATABASE_URL:-}  # empty: SQLite
+      DJANGO_OAUTH_ISSUER: ${DJANGO_OAUTH_ISSUER:-http://localhost:8000}
+      DJANGO_MCP_RESOURCE_URL: ${DJANGO_MCP_RESOURCE_URL:-http://localhost:8002/mcp}
+      # Reverse proxies in front of the containers (for rate limits).
+      DJANGO_TRUSTED_PROXY_COUNT: ${DJANGO_TRUSTED_PROXY_COUNT:-0}
     volumes:
       - app-tracker-data:/app/data
     depends_on:
@@ -55,14 +65,41 @@ services:
     image: app-tracker-api
     ports:
       - "8001:8001"
-    environment:
-      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY}
-      DJANGO_DATABASE_URL: ${DJANGO_DATABASE_URL:-}
+    environment: *environment
     volumes:
       - app-tracker-data:/app/data
     depends_on:
       web:
         condition: service_healthy
+    restart: unless-stopped
+
+  mcp:
+    build:
+      context: .
+      target: mcp
+    image: app-tracker-mcp
+    ports:
+      - "8002:8002"
+    environment:
+      <<: *environment
+      # Browser origins allowed to call the MCP server (comma-separated), for
+      # web-based MCP clients; apps that aren't browsers need none.
+      DJANGO_MCP_ALLOWED_ORIGINS: ${DJANGO_MCP_ALLOWED_ORIGINS:-}
+    volumes:
+      - app-tracker-data:/app/data
+    depends_on:
+      web:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/healthz')
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
     restart: unless-stopped
 
   db:

@@ -3,6 +3,7 @@
 import uuid
 from datetime import datetime
 from typing import ClassVar, cast, override
+from urllib.parse import urlsplit
 
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
@@ -135,6 +136,42 @@ class User(AbstractBaseUser, PermissionsMixin):
         return join_names(self.get_short_name(), middle_initial, self.last_name)
 
 
+class OAuthClient(models.Model):
+    """A program that connects to the MCP server through OAuth 2.0's
+    authorization code flow (e.g. an AI agent app), registered by the program
+    itself (dynamic client registration, RFC 7591).
+
+    Clients are public: there's no secret, since anyone can register one.
+    The name is self-reported, so the consent page says so. See
+    accounts/oauth.py.
+    """
+
+    id: models.UUIDField[uuid.UUID] = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, editable=False
+    )
+    client_id: models.CharField[str] = models.CharField(max_length=64, unique=True)
+    name: models.CharField[str] = models.CharField(max_length=100)
+    # The URLs the authorization code may be sent to (a list of strings).
+    redirect_uris: models.JSONField[list[str]] = models.JSONField(default=list)
+    created_at: models.DateTimeField[datetime] = models.DateTimeField(
+        auto_now_add=True, db_index=True
+    )
+
+    class Meta:
+        ordering: ClassVar[list[str]] = ["-created_at"]
+        verbose_name: ClassVar[str] = "OAuth client"
+
+    @override
+    def __str__(self) -> str:
+        return self.name
+
+    @property
+    def redirect_host(self) -> str:
+        """Where its first redirect URI goes (e.g. localhost:33418), to help
+        tell apps apart."""
+        return urlsplit(self.redirect_uris[0]).netloc if self.redirect_uris else ""
+
+
 class ApiGrant(models.Model):
     """A user's permission for one program (e.g. a browser extension) to use
     the JSON API, created on the API tokens page.
@@ -143,7 +180,17 @@ class ApiGrant(models.Model):
     token, which it swaps at the token endpoint for a short-lived access token
     (sent with every API request) and a new refresh token. Revoking the grant
     ends all of its tokens. See accounts/api_tokens.py.
+
+    A grant for the MCP server (audience "mcp") is made instead when the user
+    lets an OAuthClient connect, on the consent page; it's listed under
+    "Connected apps". Its tokens work only with the MCP server, and an API
+    grant's only with the API (the MCP spec forbids accepting tokens issued
+    for another service).
     """
+
+    class Audience(models.TextChoices):
+        API = "api", "JSON API"
+        MCP = "mcp", "MCP server"
 
     id: models.UUIDField[uuid.UUID] = models.UUIDField(
         primary_key=True, default=uuid.uuid4, editable=False
@@ -153,6 +200,22 @@ class ApiGrant(models.Model):
     )
     name: models.CharField[str] = models.CharField(
         max_length=100, help_text="What uses it, e.g. Browser extension."
+    )
+    audience: models.CharField[str] = models.CharField(
+        max_length=10,
+        choices=Audience.choices,
+        default=Audience.API,
+        help_text="The service its tokens work with.",
+    )
+    # The OAuth client it was made for (MCP grants only). Its refresh tokens
+    # work only with that client's client_id, so the client can't be deleted
+    # while it has grants.
+    client: models.ForeignKey[OAuthClient | None] = models.ForeignKey(
+        OAuthClient,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="grants",
     )
     created_at: models.DateTimeField[datetime] = models.DateTimeField(auto_now_add=True)
     last_used_at: models.DateTimeField[datetime | None] = models.DateTimeField(
@@ -208,3 +271,62 @@ class ApiToken(models.Model):
     @override
     def __str__(self) -> str:
         return f"{ApiToken.Kind(self.kind).label} token {self.prefix}…"
+
+
+class AuthorizationCode(models.Model):
+    """A one-time code from the consent page, which the OAuth client swaps at
+    the token endpoint, with its PKCE code verifier, for an MCP grant's first
+    tokens. Stored like ApiToken: a prefix to find it and a SHA-256 hash.
+    """
+
+    id: models.UUIDField[uuid.UUID] = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, editable=False
+    )
+    client: models.ForeignKey[OAuthClient] = models.ForeignKey(
+        OAuthClient, on_delete=models.CASCADE, related_name="codes"
+    )
+    user: models.ForeignKey[User] = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="authorization_codes"
+    )
+    prefix: models.CharField[str] = models.CharField(max_length=12, unique=True)
+    key_hash: models.CharField[str] = models.CharField(max_length=64)
+    redirect_uri: models.CharField[str] = models.CharField(max_length=2000)
+    # base64url(SHA-256(code_verifier)): PKCE's S256 method (RFC 7636).
+    code_challenge: models.CharField[str] = models.CharField(max_length=128)
+    # The RFC 8707 resource the tokens are for (the MCP server's URL).
+    resource: models.CharField[str] = models.CharField(max_length=2000)
+    created_at: models.DateTimeField[datetime] = models.DateTimeField(auto_now_add=True)
+    expires_at: models.DateTimeField[datetime] = models.DateTimeField(db_index=True)
+    used_at: models.DateTimeField[datetime | None] = models.DateTimeField(
+        null=True, blank=True
+    )
+    # The grant the code was swapped for: revoked if the code is sent again,
+    # since it may have been copied (RFC 6749 section 4.1.2).
+    grant: models.ForeignKey[ApiGrant | None] = models.ForeignKey(
+        ApiGrant, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+
+    class Meta:
+        ordering: ClassVar[list[str]] = ["-created_at"]
+
+    @override
+    def __str__(self) -> str:
+        return f"Authorization code {self.prefix}…"
+
+
+class RateLimitBucket(models.Model):
+    """How many requests one client (or everyone, for a global limit) made to
+    a rate-limited endpoint in the current window. See accounts/rate_limits.py.
+
+    Kept in the database, not a cache, so every process and container (web,
+    api) counts against the same limit.
+    """
+
+    # e.g. "token:203.0.113.7" or "register:*"
+    key: models.CharField[str] = models.CharField(max_length=100, unique=True)
+    window_start: models.DateTimeField[datetime] = models.DateTimeField(db_index=True)
+    count: models.PositiveIntegerField[int] = models.PositiveIntegerField(default=0)
+
+    @override
+    def __str__(self) -> str:
+        return f"{self.key}: {self.count}"

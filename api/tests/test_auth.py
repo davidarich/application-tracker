@@ -128,6 +128,7 @@ class DocsTests(ApiTestCase):
                 "/api/v1/companies/{company_id}",
                 "/api/v1/jobs",
                 "/api/v1/jobs/{job_id}",
+                "/api/v1/oauth/register",
                 "/api/v1/oauth/token",
                 "/api/v1/skills",
                 "/api/v1/skills/{skill_id}",

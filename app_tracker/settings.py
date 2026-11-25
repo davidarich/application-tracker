@@ -44,9 +44,13 @@ ALLOWED_HOSTS = [
 #   web  the site, with the JSON API at /api/v1/ too (the default)
 #   api  only the JSON API (api/urls.py), e.g. in a container of its own; no
 #        pages, admin, sessions or CSRF, since API requests use bearer tokens
+#   mcp  the MCP server for AI agents (mcp_server/asgi.py, run with uvicorn);
+#        like `api`, it needs only the models, not pages or sessions
 ROLE = os.environ.get("DJANGO_ROLE", "web")
-if ROLE not in {"web", "api"}:
-    raise ImproperlyConfigured(f'DJANGO_ROLE must be "web" or "api", not "{ROLE}".')
+if ROLE not in {"web", "api", "mcp"}:
+    raise ImproperlyConfigured(
+        f'DJANGO_ROLE must be "web", "api" or "mcp", not "{ROLE}".'
+    )
 
 
 # Application definition
@@ -72,11 +76,13 @@ INSTALLED_APPS = WEB_APPS if ROLE == "web" else API_APPS
 
 API_MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "api.cors.PublicCorsMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.middleware.common.CommonMiddleware",
 ]
 WEB_MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "api.cors.PublicCorsMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -136,6 +142,40 @@ AUTH_USER_MODEL = "accounts.User"
 LOGIN_URL = "tracker:login"
 LOGIN_REDIRECT_URL = "tracker:dashboard"
 LOGOUT_REDIRECT_URL = "tracker:login"
+
+
+# OAuth 2.0 for the MCP server (accounts/oauth.py, mcp_server/)
+#
+# The web app is the authorization server: OAUTH_ISSUER is its public origin,
+# as clients reach it (no trailing slash). MCP_RESOURCE_URL is the MCP
+# server's public URL, ending in its path (/mcp); tokens are issued for it.
+OAUTH_ISSUER = os.environ.get("DJANGO_OAUTH_ISSUER", "http://localhost:8000").rstrip(
+    "/"
+)
+MCP_RESOURCE_URL = os.environ.get(
+    "DJANGO_MCP_RESOURCE_URL", "http://localhost:8002/mcp"
+).rstrip("/")
+# Browser origins allowed to call the MCP server (e.g. a web-based MCP
+# client), comma-separated. Requests from other origins are refused, which
+# also guards against DNS rebinding; apps that aren't browsers send none.
+MCP_ALLOWED_ORIGINS = [
+    origin.strip().rstrip("/")
+    for origin in os.environ.get("DJANGO_MCP_ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+
+# Rate limits for the public OAuth endpoints (accounts/rate_limits.py), as
+# (requests, window in seconds): per client IP address, and in total. Each
+# client normally refreshes about every 15 minutes, and registers once.
+OAUTH_RATE_LIMITS = {
+    "token": {"per_client": (30, 60)},
+    "register": {"per_client": (10, 3600), "total": (100, 3600)},
+}
+# How many reverse proxies are in front of the app, each adding the address
+# it got the request from to X-Forwarded-For. 0 (the default) uses the
+# connection's own address; with a proxy, every client would otherwise share
+# the proxy's address, and so one rate limit.
+TRUSTED_PROXY_COUNT = int(os.environ.get("DJANGO_TRUSTED_PROXY_COUNT", "0"))
 
 
 # Error reports (emails to ADMINS, error trackers) leave out API tokens, as

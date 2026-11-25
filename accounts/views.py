@@ -5,14 +5,29 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
-from django.http import FileResponse, Http404, HttpRequest, HttpResponse
+from django.http import (
+    FileResponse,
+    Http404,
+    HttpRequest,
+    HttpResponse,
+    HttpResponseRedirect,
+    JsonResponse,
+)
 from django.shortcuts import redirect, render
 from django.utils.cache import add_never_cache_headers
-from django.views.decorators.http import require_POST
+from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
-from .api_tokens import active_grants_for, issue_grant, revoke_grant
+from .api_tokens import Audience, active_grants_for, issue_grant, revoke_grant
 from .forms import ApiTokenForm, AvatarForm, ProfileForm
 from .http import request_user
+from .oauth import (
+    OAuthError,
+    RedirectError,
+    issue_code,
+    parse_authorize,
+    server_metadata,
+)
 
 # Session key holding a just-created refresh token until the API tokens page
 # shows it (once: it's removed as it's shown, and only its hash is stored).
@@ -49,6 +64,7 @@ def api_tokens(request: HttpRequest) -> HttpResponse:
         {
             "token_form": ApiTokenForm(),
             "api_grants": active_grants_for(user),
+            "connected_apps": active_grants_for(user, Audience.MCP),
             "new_api_token": new_api_token,
         },
     )
@@ -77,12 +93,63 @@ def api_token_create(request: HttpRequest) -> HttpResponse:
 @login_required
 @require_POST
 def api_token_revoke(request: HttpRequest, pk: uuid.UUID) -> HttpResponse:
-    """Revoke one of the user's API grants (all its tokens); anyone else's is a 404."""
+    """Revoke one of the user's API grants (all its tokens), including a
+    connected app's; anyone else's is a 404."""
     grant = revoke_grant(request_user(request), pk)
     if grant is None:
         raise Http404("No such token.")
-    messages.success(request, f"Revoked the token {grant.name}.")
+    if grant.audience == Audience.MCP.value:
+        messages.success(request, f"Disconnected {grant.name}.")
+    else:
+        messages.success(request, f"Revoked the token {grant.name}.")
     return redirect("accounts:api_tokens")
+
+
+@require_GET
+def oauth_server_metadata(_request: HttpRequest) -> HttpResponse:
+    """The OAuth 2.0 authorization server metadata (RFC 8414), which MCP
+    clients read to find the endpoints below (see accounts/oauth.py)."""
+    return JsonResponse(server_metadata())
+
+
+@never_cache
+@login_required
+@require_http_methods(["GET", "POST"])
+def oauth_authorize(request: HttpRequest) -> HttpResponse:
+    """The OAuth 2.0 authorization endpoint: asks the logged-in user whether
+    an app (an MCP client) may use their account through the MCP server, and
+    sends them back to the app with a one-time code if they allow it.
+
+    The consent form posts the request's parameters back, and they're
+    checked again: nothing from the GET is trusted on the POST."""
+    params = request.POST if request.method == "POST" else request.GET
+    try:
+        authorize = parse_authorize({key: params.get(key, "") for key in params})
+    except OAuthError as error:
+        # Not the client's redirect URI (or no client): never redirect.
+        return render(
+            request,
+            "accounts/oauth_error.html",
+            {"description": error.description},
+            status=400,
+        )
+    except RedirectError as error:
+        return HttpResponseRedirect(error.redirect_url())
+    if request.method == "GET":
+        return render(
+            request, "accounts/oauth_authorize.html", {"authorize": authorize}
+        )
+    if request.POST.get("decision") != "allow":
+        return HttpResponseRedirect(
+            authorize.redirect_with(
+                {
+                    "error": "access_denied",
+                    "error_description": "The user declined to connect the app.",
+                }
+            )
+        )
+    code = issue_code(request_user(request), authorize)
+    return HttpResponseRedirect(authorize.redirect_with({"code": code}))
 
 
 @login_required

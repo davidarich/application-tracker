@@ -44,6 +44,31 @@
     {% endif %}
   </section>
 
+  <section id="connected-apps" class="mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" aria-labelledby="connected-apps-title">
+    <h2 id="connected-apps-title" class="text-base font-semibold text-ink">Connected apps</h2>
+    <p class="mt-0.5 text-xs text-ink-faint">AI agent apps you allowed to use your account through the MCP server, by logging in from the app. Disconnecting one stops it straight away; it would have to ask you again.</p>
+    {% if connected_apps %}
+      <ul class="mt-4 divide-y divide-line">
+        {% for grant in connected_apps %}
+          <li class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-3 first:pt-0 last:pb-0">
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-ink">{{ grant.name }}{% if grant.client.redirect_host %} <span class="font-mono text-xs font-normal text-ink-faint">{{ grant.client.redirect_host }}</span>{% endif %}</p>
+              <p class="mt-0.5 text-xs text-ink-faint">
+                Connected {{ grant.created_at|date:"M j, Y" }} · {% if grant.last_used_at %}Last used {{ grant.last_used_at|date:"M j, Y" }}{% else %}Never used{% endif %}
+              </p>
+            </div>
+            <form method="post" action="{% url 'accounts:api_token_revoke' grant.id %}">
+              {% csrf_token %}
+              <button type="submit" class="cursor-pointer rounded-lg px-2 py-1 text-sm text-ink-muted underline-offset-2 transition hover:text-ink hover:underline">Disconnect <span class="sr-only">{{ grant.name }}</span></button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="mt-4 rounded-xl border border-dashed border-line px-4 py-6 text-center text-sm text-ink-faint">No apps are connected.</p>
+    {% endif %}
+  </section>
+
   <form method="post" action="{% url 'accounts:api_token_create' %}" class="mt-6 rounded-2xl border border-line bg-panel p-5 lg:p-6" aria-labelledby="create-token-title">
     {% csrf_token %}
     <h2 id="create-token-title" class="text-base font-semibold text-ink">Create a token</h2>

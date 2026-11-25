@@ -20,8 +20,9 @@ type StatusValue = Literal[
 ]
 type WorkplaceValue = Literal["", "in_office", "hybrid", "remote"]
 # CreationSource values: how a record was created. Read-only: the API sets
-# "api" on the records it creates, and request bodies can't change it.
-type CreationSourceValue = Literal["manual", "api"]
+# "api" on the records it creates (the MCP server "mcp"), and request bodies
+# can't change it.
+type CreationSourceValue = Literal["manual", "api", "mcp"]
 # A status filter: a status, "none" (not applied yet), "open" (everything but
 # closed and ignored) or "all".
 type StatusFilter = Literal[
