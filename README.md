@@ -87,7 +87,9 @@ Job application tracker written in Python using the Django framework.
   API tokens page.
 - **Runs on its own** in a third container, sharing the database.
 
-## Setup
+## Development
+
+### Setup
 
 ```powershell
 python -m venv .venv
