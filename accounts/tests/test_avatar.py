@@ -131,7 +131,10 @@ class AvatarTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "image/webp")
         self.assertIn("private", response["Cache-Control"])
-        response.close()
+        # Reading the file to the end lets the test client close the response
+        # (and the file). Closing it here instead would close the database
+        # connection too, on databases that really close it (PostgreSQL).
+        self.assertTrue(response.getvalue().startswith(b"RIFF"))  # a WebP file
         # Another user only ever gets their own (here: none).
         self.client.force_login(User.objects.create_user("bob@example.com", "x"))
         self.assertEqual(self.client.get(reverse("accounts:avatar")).status_code, 404)

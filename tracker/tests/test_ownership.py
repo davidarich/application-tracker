@@ -310,11 +310,14 @@ class FileOwnershipTests(TestCase):
         self.client.force_login(self.alice)
         response = self.client.get(self.file.path.url)
         self.assertEqual(response.status_code, 200)
+        # Reading the file to the end also lets the test client close it
+        # (Windows won't delete an open file). Don't call response.close():
+        # it would close the database connection too, on databases that
+        # really close it (PostgreSQL).
         self.assertEqual(response.getvalue(), b"%PDF-1.4 resume")
         self.assertIn(
             'attachment; filename="Resume.pdf"', response["Content-Disposition"]
         )
-        response.close()  # release the file (Windows won't delete an open file)
 
     def test_other_users_get_a_404(self):
         self.client.force_login(self.bob)
@@ -329,7 +332,7 @@ class FileOwnershipTests(TestCase):
         self.client.force_login(make_user("root@example.com", superuser=True))
         response = self.client.get(self.file.path.url)
         self.assertEqual(response.status_code, 200)
-        response.close()
+        self.assertEqual(response.getvalue(), b"%PDF-1.4 resume")  # and closes it
 
     def test_missing_file_is_a_404(self):
         gone = File.objects.create(
